@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Weekly Chores</title>
+</head>
+<body>
+    <main>
+        <h1>Weekly Chores</h1>
+        {% if chores %}
+            <ul>
+                {% for chore in chores %}
+                    <li>
+                        <input type="checkbox" {% if chore.done %}checked{% endif %} disabled>
+                        <span>{{ chore.name }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No chores have been added yet.</p>
+        {% endif %}
+    </main>
+</body>
+</html>
