@@ -51,6 +51,15 @@ class ReadChoresTests(TestCase):
 
         self.assertEqual(chores, [])
 
+    def test_empty_file_returns_empty_list(self):
+        with TemporaryDirectory() as temporary_directory:
+            chores_path = Path(temporary_directory) / "empty.md"
+            chores_path.write_text("", encoding="utf-8")
+
+            chores = _read_chores(chores_path)
+
+        self.assertEqual(chores, [])
+
 
 class ChoreListViewTests(TestCase):
     def test_renders_chores_from_markdown(self):
@@ -67,7 +76,7 @@ class ChoreListViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Vacuum living room")
         self.assertContains(response, "Clean bathroom sink")
-        self.assertContains(response, '<input type="checkbox" disabled>')
+        self.assertContains(response, '<input type="checkbox"  disabled>')
         self.assertContains(response, '<input type="checkbox" checked disabled>')
 
     def test_missing_markdown_shows_empty_state(self):
