@@ -1,0 +1,103 @@
+name: Agent Relay CI/CD
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test with PostgreSQL
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify uv is installed
+        shell: powershell
+        run: uv --version
+      - name: Start PostgreSQL for tests
+        shell: powershell
+        run: |
+          $suffix = if ($env:GITHUB_RUN_ID) { $env:GITHUB_RUN_ID } else { "act" }
+          $container = "agent-relay-test-$suffix-$([guid]::NewGuid().ToString('N'))"
+          Add-Content -Path $env:GITHUB_ENV -Value "POSTGRES_CONTAINER=$container"
+          docker run --detach --rm --name $container `
+            --env POSTGRES_DB=agent_relay_test `
+            --env POSTGRES_USER=agent_relay `
+            --env POSTGRES_PASSWORD=agent_relay `
+            --publish 55432:5432 postgres:17-alpine
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ready = $false
+          for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            docker exec $container pg_isready -U agent_relay -d agent_relay_test *> $null
+            if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+            Start-Sleep -Seconds 2
+          }
+          if (-not $ready) { throw "PostgreSQL did not become ready in time." }
+      - name: Install project and test dependencies
+        shell: powershell
+        run: uv sync --locked --all-groups
+      - name: Run starter and integration tests
+        shell: powershell
+        env:
+          RELAY_DATABASE_URL: postgresql+psycopg://agent_relay:agent_relay@127.0.0.1:55432/agent_relay_test
+        run: |
+          uv run pytest -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stop PostgreSQL test container
+        if: always()
+        shell: powershell
+        run: |
+          if ($env:POSTGRES_CONTAINER) {
+            docker rm --force $env:POSTGRES_CONTAINER
+          }
+
+  deploy:
+    name: Build and deploy to kind
+    needs: test
+    if: ${{ needs.test.result == 'success' }}
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Docker and kind access
+        shell: powershell
+        run: |
+          docker version
+          kind get clusters
+          kubectl config use-context kind-agent-relay
+          kubectl get nodes
+      - name: Create unique image tag
+        shell: powershell
+        run: |
+          $commit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA.Substring(0, 12) } else { "local" }
+          $run = if ($env:GITHUB_RUN_ID) { $env:GITHUB_RUN_ID } else { "act" }
+          $tag = "{0}-{1}-{2}" -f $commit, $run, [guid]::NewGuid().ToString("N")
+          Add-Content -Path $env:GITHUB_ENV -Value "IMAGE_TAG=$tag"
+          Write-Output "Building agent-relay:$tag"
+      - name: Build and load image into kind
+        shell: powershell
+        run: |
+          docker build --tag "agent-relay:$env:IMAGE_TAG" .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          kind load docker-image "agent-relay:$env:IMAGE_TAG" --name agent-relay
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Apply PostgreSQL resources
+        shell: powershell
+        run: |
+          kubectl apply -f k8s/postgres.yaml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          kubectl rollout status statefulset/postgres -n agent-relay --timeout=300s
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Deploy unique image and wait for rollout
+        shell: powershell
+        run: |
+          $image = "agent-relay:$env:IMAGE_TAG"
+          $manifest = (Get-Content -Raw k8s/agent-relay.yaml).Replace("agent-relay:local", $image)
+          $manifestPath = Join-Path $env:RUNNER_TEMP "agent-relay-$env:IMAGE_TAG.yaml"
+          Set-Content -Path $manifestPath -Value $manifest -Encoding utf8
+          kubectl apply -f $manifestPath
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          kubectl rollout status deployment/agent-relay -n agent-relay --timeout=180s
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

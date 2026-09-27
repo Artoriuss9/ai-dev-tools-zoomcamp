@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-relay
+  namespace: agent-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-relay
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: agent-relay:local
+          imagePullPolicy: Never
+          command:
+            - python
+            - -c
+            - |
+              import socket
+              import time
+
+              while True:
+                  try:
+                      with socket.create_connection(("postgres", 5432), timeout=2):
+                          break
+                  except OSError:
+                      time.sleep(2)
+      containers:
+        - name: agent-relay
+          image: agent-relay:local
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: RELAY_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: RELAY_DATABASE_URL
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-relay
+  namespace: agent-relay
+spec:
+  selector:
+    app.kubernetes.io/name: agent-relay
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
