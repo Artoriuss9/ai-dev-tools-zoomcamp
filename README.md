@@ -7,6 +7,8 @@ code, setup instructions, and deployment configuration.
 
 - [01 - AI Native Workflow](01-ai-native-workflow/README.md): a Django chores
   tool for tracking recurring weekly chores using a Markdown file.
+- [02 - Development](02-development/ice-now/README.md): Ice Now, a development
+  project for the app workflow and local service setup.
 - [03 - Deployment](03-deployment/agent-relay/README.md): Agent Relay, a FastAPI
   service for exchanging tasks between agents, with Docker, PostgreSQL,
   Kubernetes, and CI/CD examples.
