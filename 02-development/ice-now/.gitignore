@@ -1,0 +1,40 @@
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Django
+*.log
+db.sqlite3
+*.db
+media/
+staticfiles/
+
+# Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Local tooling
+.cache/
