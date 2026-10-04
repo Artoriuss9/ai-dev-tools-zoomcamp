@@ -10,3 +10,6 @@ code, setup instructions, and deployment configuration.
 - [03 - Deployment](03-deployment/agent-relay/README.md): Agent Relay, a FastAPI
   service for exchanging tasks between agents, with Docker, PostgreSQL,
   Kubernetes, and CI/CD examples.
+- [04 - DevOps and Observability](04-devops/order-tracker/README.md): Order
+  Tracker, an observability and incident-response homework with OpenTelemetry,
+  Grafana, alerts, and a headless responder.
