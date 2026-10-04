@@ -1,0 +1,68 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Order Tracker Alerts
+    folder: Order Tracker
+    interval: 1m
+    rules:
+      - uid: order-tracker-5xx
+        title: Order Tracker 5xx responses
+        condition: C
+        data:
+          - refId: A
+            queryType: ""
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(order_tracker_requests_total{http_status_code=~"5.."}[5m]))
+              intervalMs: 1000
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: ["A"]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              reducer: last
+              type: reduce
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: ["B"]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: B
+              reducer: last
+              type: reduce
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Order Tracker is returning 5xx responses"
+          dashboard: "http://grafana:3000/d/order-tracker-overview/order-tracker-overview"
+          runbook_url: "https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/cohorts/2026/homework/04-devops/homework.md"
+        labels:
+          severity: critical
+          endpoint: /api/orders/{id}
