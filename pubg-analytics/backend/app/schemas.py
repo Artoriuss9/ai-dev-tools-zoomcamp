@@ -111,3 +111,7 @@ class AnalyzeResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class VersionResponse(BaseModel):
+    commit_sha: str

@@ -30,5 +30,6 @@ SQLite persistence.
 The Docker image contains only runtime packages and runs as a non-root user.
 It reads Railway's assigned `PORT` and defaults to 8000 locally. GitHub Actions
 runs backend and frontend tests, security checks, builds and smoke-tests the
-image, and can deploy to Railway after a successful CI run when repository
-deployment variables and the Railway project token are configured.
+image. Railway waits for CI before deploying from the connected branch. A
+separate scheduled/manual GitHub Actions workflow checks public liveness,
+readiness, UI, and deployed commit version without requiring a Railway token.

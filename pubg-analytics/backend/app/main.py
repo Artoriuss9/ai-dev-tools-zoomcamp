@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,7 +22,7 @@ from .exceptions import (
     RateLimitedError,
 )
 from .pubg_client import PUBGClient
-from .schemas import AnalyzeRequest, AnalyzeResponse, ErrorResponse, HealthResponse
+from .schemas import AnalyzeRequest, AnalyzeResponse, ErrorResponse, HealthResponse, VersionResponse
 from .service import AnalysisService
 from .telemetry import configure_telemetry
 
@@ -67,6 +68,11 @@ async def index() -> FileResponse:
 @app.get("/health", response_model=HealthResponse, responses={200: {"model": HealthResponse}})
 async def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.get("/version", response_model=VersionResponse)
+async def version() -> VersionResponse:
+    return VersionResponse(commit_sha=os.getenv("RAILWAY_GIT_COMMIT_SHA", "unknown"))
 
 
 @app.get(

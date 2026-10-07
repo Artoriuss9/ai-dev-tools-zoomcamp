@@ -85,7 +85,8 @@ runtime-зависимости из `requirements.txt`.
 в формате `{ "error": { "code": "...", "message": "..." } }`.
 
 `GET /health` — liveness-проверка процесса. `GET /ready` выполняет запрос к
-базе данных и возвращает HTTP 503, если она недоступна.
+базе данных и возвращает HTTP 503, если она недоступна. `GET /version`
+возвращает commit SHA, который Railway использовал для текущего деплоя.
 
 OpenAPI-контракт хранится в [`openapi.yaml`](openapi.yaml) и генерируется из
 FastAPI-схем:

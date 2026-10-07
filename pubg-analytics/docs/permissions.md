@@ -11,7 +11,7 @@ development workflow require; it is not an agent extension pack.
 | FastAPI service | PUBG API outbound HTTPS; read configured environment; read/write database | Unrelated host files or source-control credentials |
 | CI tests | Repository read access; local isolated database; mocked PUBG client | Production PUBG API key or player data |
 | CI image build | Repository read access and Docker build capability | Deployment credentials on pull requests |
-| Optional deploy job | Provider-specific deploy credential stored as a protected Actions secret | Secret values in logs, artifacts, or source |
+| Deployment health workflow | Read the non-secret `RAILWAY_PUBLIC_URL` Actions variable and make public HTTP checks | Railway deployment token or PUBG API key |
 
 Do not include `.env`, database files, real player match exports, authorization
 headers, or API tokens in prompts, issues, pull requests, or CI artifacts.

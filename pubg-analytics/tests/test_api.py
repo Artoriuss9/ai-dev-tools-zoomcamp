@@ -19,6 +19,14 @@ def test_health():
     assert response.json() == {"status": "ok"}
 
 
+def test_version_reports_deployed_commit(monkeypatch):
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "abc123")
+    with TestClient(app) as client:
+        response = client.get("/version")
+    assert response.status_code == 200
+    assert response.json() == {"commit_sha": "abc123"}
+
+
 def test_ready():
     settings.pubg_api_key = "test-key"
     with TestClient(app) as client:

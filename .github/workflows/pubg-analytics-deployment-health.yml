@@ -1,0 +1,67 @@
+name: PUBG Analytics deployment health
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-deployed-service:
+    name: Check public Railway deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check deployed endpoints
+        env:
+          RAILWAY_PUBLIC_URL: ${{ vars.RAILWAY_PUBLIC_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RAILWAY_PUBLIC_URL" ]]; then
+            echo "::error::Set the RAILWAY_PUBLIC_URL repository variable."
+            exit 1
+          fi
+
+          base_url="${RAILWAY_PUBLIC_URL%/}"
+          for endpoint in health ready home; do
+            case "$endpoint" in
+              home) url="$base_url/" ;;
+              *) url="$base_url/$endpoint" ;;
+            esac
+
+            healthy=false
+            for attempt in {1..60}; do
+              if curl --fail --silent --show-error --max-time 10 "$url" >/dev/null; then
+                healthy=true
+                echo "OK: $url"
+                break
+              fi
+              sleep 5
+            done
+
+            if [[ "$healthy" != "true" ]]; then
+              echo "::error::Endpoint did not become healthy: $url"
+              curl --verbose --max-time 10 "$url" || true
+              exit 1
+            fi
+          done
+
+          version_url="$base_url/version"
+          version_response="$(curl --fail --silent --show-error --max-time 10 "$version_url")"
+          deployed_commit="$(python -c 'import json,sys; print(json.load(sys.stdin).get("commit_sha", ""))' <<< "$version_response")"
+          if [[ -z "$deployed_commit" || "$deployed_commit" == "unknown" ]]; then
+            echo "::error::The deployment did not report its Railway commit SHA."
+            exit 1
+          fi
+          echo "OK: Railway is serving commit $deployed_commit"
+
+          {
+            echo "## Railway deployment health"
+            echo ""
+            echo "The public application URL, `/health`, `/ready`, and `/` checks succeeded."
+            echo "Railway is serving commit \`$deployed_commit\`."
+            echo ""
+            echo "Application: $base_url"
+          } >> "$GITHUB_STEP_SUMMARY"
