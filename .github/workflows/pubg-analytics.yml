@@ -1,0 +1,218 @@
+name: PUBG Analytics CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: pubg-analytics
+
+jobs:
+  test-audit-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pubg-analytics/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run backend unit and API tests
+        id: unit
+        run: pytest -q tests --ignore=tests/integration
+      - name: Run backend integration tests
+        id: integration
+        run: pytest -q tests/integration
+      - name: Run frontend tests
+        id: frontend
+        run: node --test tests/frontend/*.test.js
+      - name: Verify OpenAPI contract is current
+        id: openapi
+        run: |
+          python ops/export_openapi.py
+          git diff --exit-code -- openapi.yaml
+      - name: Run Bandit
+        id: bandit
+        continue-on-error: true
+        run: bandit -r backend/app -ll -f json -o reports/bandit.json
+      - name: Run pip-audit
+        id: pip_audit
+        continue-on-error: true
+        run: pip-audit -r requirements-dev.txt --format json --output reports/pip-audit.json
+      - name: Validate Compose configuration
+        id: compose_config
+        env:
+          PUBG_API_KEY: ci-placeholder-not-a-real-key
+        run: docker compose config --quiet
+      - name: Build application image
+        id: build
+        run: docker build --tag pubg-analytics:${{ github.sha }} .
+      - name: Start application container for smoke test
+        id: smoke
+        env:
+          PUBG_API_KEY: ci-placeholder-not-a-real-key
+          APP_ENV: ci
+        run: |
+          docker run --detach --name "pubg-analytics-${GITHUB_RUN_ID}" \
+            --publish 8000:8000 \
+            --env PUBG_API_KEY="$PUBG_API_KEY" \
+            --env DATABASE_URL=sqlite:////tmp/pubg.db \
+            --env APP_ENV="$APP_ENV" \
+            "pubg-analytics:${GITHUB_SHA}"
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/ready >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" != "true" ]]; then
+            docker logs "pubg-analytics-${GITHUB_RUN_ID}"
+            exit 1
+          fi
+          python ops/diagnose.py --skip-compose --base-url http://127.0.0.1:8000 \
+            --output reports/operational-diagnosis.json
+      - name: Stop application smoke-test container
+        if: always()
+        run: |
+          container="pubg-analytics-${GITHUB_RUN_ID}"
+          if docker container inspect "$container" >/dev/null 2>&1; then
+            docker rm --force "$container"
+          fi
+      - name: Upload security and operations reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-and-ops-reports
+          path: pubg-analytics/reports/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Write pull-request audit summary
+        if: always()
+        env:
+          UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          OPENAPI_OUTCOME: ${{ steps.openapi.outcome }}
+          BANDIT_OUTCOME: ${{ steps.bandit.outcome }}
+          PIP_AUDIT_OUTCOME: ${{ steps.pip_audit.outcome }}
+          COMPOSE_CONFIG_OUTCOME: ${{ steps.compose_config.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo "## PUBG Analytics CI and audit"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Backend unit/API tests | ${UNIT_OUTCOME} |"
+            echo "| Backend integration tests | ${INTEGRATION_OUTCOME} |"
+            echo "| Frontend tests | ${FRONTEND_OUTCOME} |"
+            echo "| OpenAPI drift check | ${OPENAPI_OUTCOME} |"
+            echo "| Bandit | ${BANDIT_OUTCOME} |"
+            echo "| pip-audit | ${PIP_AUDIT_OUTCOME} |"
+            echo "| Compose config | ${COMPOSE_CONFIG_OUTCOME} |"
+            echo "| Docker build | ${BUILD_OUTCOME} |"
+            echo "| Container smoke test | ${SMOKE_OUTCOME} |"
+            echo ""
+            echo "Machine-readable scanner and operations reports are attached as the \`security-and-ops-reports\` artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Enforce test, scan, and smoke-test results
+        if: always()
+        env:
+          UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
+          FRONTEND_OUTCOME: ${{ steps.frontend.outcome }}
+          OPENAPI_OUTCOME: ${{ steps.openapi.outcome }}
+          BANDIT_OUTCOME: ${{ steps.bandit.outcome }}
+          PIP_AUDIT_OUTCOME: ${{ steps.pip_audit.outcome }}
+          COMPOSE_CONFIG_OUTCOME: ${{ steps.compose_config.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          if [[ "$UNIT_OUTCOME" != "success" || "$INTEGRATION_OUTCOME" != "success" || "$FRONTEND_OUTCOME" != "success" || "$OPENAPI_OUTCOME" != "success" || "$BANDIT_OUTCOME" != "success" || "$PIP_AUDIT_OUTCOME" != "success" || "$COMPOSE_CONFIG_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$SMOKE_OUTCOME" != "success" ]]; then
+            echo "One or more tests, security scans, or Docker smoke checks failed."
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy to Railway
+    needs: test-audit-and-smoke
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.RAILWAY_PROJECT_ID != '' &&
+      vars.RAILWAY_ENVIRONMENT_ID != '' &&
+      vars.RAILWAY_SERVICE_ID != '' &&
+      vars.RAILWAY_PUBLIC_URL != ''
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pubg-analytics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+      - name: Deploy application
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID }}
+        run: |
+          if [[ -z "$RAILWAY_TOKEN" ]]; then
+            echo "::error::Set the RAILWAY_TOKEN repository secret before enabling deployment."
+            exit 1
+          fi
+          railway up --ci \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_ID" \
+            --service "$RAILWAY_SERVICE_ID"
+      - name: Verify the deployed service
+        env:
+          RAILWAY_PUBLIC_URL: ${{ vars.RAILWAY_PUBLIC_URL }}
+        run: |
+          RAILWAY_PUBLIC_URL="${RAILWAY_PUBLIC_URL%/}"
+          for endpoint in health ready; do
+            ready=false
+            for attempt in {1..30}; do
+              if curl --fail --silent --show-error "$RAILWAY_PUBLIC_URL/$endpoint" >/dev/null; then
+                ready=true
+                break
+              fi
+              sleep 5
+            done
+            if [[ "$ready" != "true" ]]; then
+              echo "::error::Railway endpoint /$endpoint did not become healthy."
+              exit 1
+            fi
+          done
+          curl --fail --silent --show-error "$RAILWAY_PUBLIC_URL/" >/dev/null
+          echo "Deployed and healthy: $RAILWAY_PUBLIC_URL"
+      - name: Record deployment URL
+        env:
+          RAILWAY_PUBLIC_URL: ${{ vars.RAILWAY_PUBLIC_URL }}
+        run: |
+          {
+            echo "## Railway deployment"
+            echo ""
+            echo "Deployment and `/health`, `/ready`, and `/` smoke checks succeeded."
+            echo ""
+            echo "Application URL: $RAILWAY_PUBLIC_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

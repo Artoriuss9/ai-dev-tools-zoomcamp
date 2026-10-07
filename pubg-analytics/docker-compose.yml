@@ -1,0 +1,95 @@
+name: pubg-analytics
+
+services:
+  app:
+    build: .
+    image: pubg-analytics:local
+    ports:
+      - "127.0.0.1:${PUBG_APP_PORT:-8000}:8000"
+    environment:
+      PUBG_API_KEY: ${PUBG_API_KEY:?Set PUBG_API_KEY in pubg-analytics/.env}
+      PUBG_PLATFORM: ${PUBG_PLATFORM:-steam}
+      PUBG_MODE: ${PUBG_MODE:-solo-fpp}
+      PUBG_API_BASE_URL: ${PUBG_API_BASE_URL:-https://api.pubg.com}
+      PUBG_API_TIMEOUT: ${PUBG_API_TIMEOUT:-10}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/pubg.db}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      APP_ENV: docker
+    volumes:
+      - pubg-data:/data
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.117.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./config/otelcol/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - loki
+      - tempo
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.2.0
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./config/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    restart: unless-stopped
+
+volumes:
+  pubg-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:

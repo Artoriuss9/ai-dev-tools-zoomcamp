@@ -15,3 +15,7 @@ code, setup instructions, and deployment configuration.
 - [04 - DevOps and Observability](04-devops/order-tracker/README.md): Order
   Tracker, an observability and incident-response homework with OpenTelemetry,
   Grafana, alerts, and a headless responder.
+- [Final - PUBG Match Analytics](pubg-analytics/README.md): a full-stack PUBG
+  match analytics app with a FastAPI API, SQLite, Docker Compose, CI, and
+  observability. The cloud deployment and Module 5 agent extension pack are
+  intentionally not included yet.

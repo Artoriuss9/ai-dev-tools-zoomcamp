@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PUBG Match Analytics</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">PUBG API</p>
+        <h1>Match Analytics</h1>
+        <p class="subtitle">Analyze up to the 10 latest Solo FPP matches for a player.</p>
+      </div>
+      <span class="badge" id="modeBadge">Mode: Solo FPP</span>
+    </header>
+
+    <section class="card search-card">
+      <form id="analyzeForm">
+        <label for="nickname">Player nickname</label>
+        <div class="search-row">
+          <input id="nickname" name="nickname" type="text" minlength="1" maxlength="100" placeholder="Enter PUBG nickname" required autocomplete="off">
+          <button id="analyzeButton" type="submit">Analyze</button>
+        </div>
+        <div class="action-row">
+          <button id="refreshButton" class="secondary" type="button" disabled>Refresh data</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="error" class="error" role="alert" hidden></section>
+    <section id="result" hidden>
+      <div class="meta-row">
+        <div>
+          <h2 id="playerName">—</h2>
+          <p id="playerId" class="muted">—</p>
+        </div>
+        <div class="meta-right">
+          <div>Analyzed <strong id="analyzedCount">0</strong> of 10 matches</div>
+          <div>Last updated: <strong id="updatedAt">—</strong></div>
+          <div>Data source: <strong>PUBG API</strong></div>
+        </div>
+      </div>
+
+      <div class="metrics-grid" id="metrics"></div>
+
+      <section class="insights-layout">
+        <article class="card headline-card">
+          <p class="section-kicker">Next match read</p>
+          <h3 id="insightHeadline">—</h3>
+          <p id="playerProfile" class="profile-copy">—</p>
+        </article>
+        <article class="card goals-card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Focus</p>
+              <h3>Goals for next match</h3>
+            </div>
+            <span class="target-mark">01</span>
+          </div>
+          <ol id="goalsList" class="insight-list"></ol>
+        </article>
+      </section>
+
+      <section class="card advice-card">
+        <p class="section-kicker">Coach note</p>
+        <h3>Совет</h3>
+        <p id="insightAdvice" class="advice-copy">—</p>
+      </section>
+
+      <section class="insight-columns">
+        <article class="card insight-card">
+          <p class="section-kicker">What is working</p>
+          <h3>Strengths</h3>
+          <ul id="strengthsList" class="insight-list"></ul>
+        </article>
+        <article class="card insight-card warning-card">
+          <p class="section-kicker">What to adjust</p>
+          <h3>Weaknesses</h3>
+          <ul id="weaknessesList" class="insight-list"></ul>
+        </article>
+        <article class="card insight-card">
+          <p class="section-kicker">Match shape</p>
+          <h3>Key rates</h3>
+          <div id="rateBars" class="rate-bars"></div>
+        </article>
+      </section>
+
+      <section class="insight-columns lower-insights">
+        <article class="card insight-card">
+          <p class="section-kicker">Momentum</p>
+          <h3>Recent vs previous</h3>
+          <div id="trendGrid" class="trend-grid"></div>
+        </article>
+        <article class="card insight-card map-insight-card">
+          <p class="section-kicker">Where you perform</p>
+          <h3>Map performance</h3>
+          <div id="mapPerformance" class="map-performance"></div>
+        </article>
+      </section>
+
+      <section class="insight-columns level-one-insights">
+        <article class="card insight-card">
+          <p class="section-kicker">Level 1 analysis</p>
+          <h3>Тренд: ранние vs недавние</h3>
+          <div id="trendComparison" class="comparison-grid"></div>
+        </article>
+        <article class="card insight-card map-stats-card">
+          <p class="section-kicker">Level 1 analysis</p>
+          <h3>Анализ по картам</h3>
+          <div id="mapStats" class="map-stats"></div>
+        </article>
+      </section>
+
+      <section class="card table-card">
+        <div class="table-header">
+          <h3>Recent matches</h3>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Map</th>
+                <th>Mode</th>
+                <th>Placement</th>
+                <th>Kills</th>
+                <th>Assists</th>
+                <th>Damage</th>
+                <th>Survival</th>
+              </tr>
+            </thead>
+            <tbody id="matchesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="/static/app.js?v=3"></script>
+</body>
+</html>

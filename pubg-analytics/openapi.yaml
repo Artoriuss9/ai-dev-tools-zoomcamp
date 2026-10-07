@@ -1,0 +1,633 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PUBG Match Analytics",
+    "description": "Analyze the latest Solo FPP PUBG matches for a player.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Readiness",
+        "operationId": "readiness_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "summary": "Analyze",
+        "operationId": "analyze_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalyzeRequest": {
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Nickname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nickname"
+        ],
+        "title": "AnalyzeRequest"
+      },
+      "AnalyzeResponse": {
+        "properties": {
+          "player": {
+            "$ref": "#/components/schemas/PlayerResponse"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SummaryResponse"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/MatchResponse"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "insights": {
+            "$ref": "#/components/schemas/InsightsResponse"
+          },
+          "analyzed_count": {
+            "type": "integer",
+            "title": "Analyzed Count"
+          },
+          "requested_count": {
+            "type": "integer",
+            "title": "Requested Count",
+            "default": 10
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "data_source": {
+            "type": "string",
+            "title": "Data Source",
+            "default": "PUBG API"
+          }
+        },
+        "type": "object",
+        "required": [
+          "player",
+          "summary",
+          "matches",
+          "insights",
+          "analyzed_count",
+          "updated_at"
+        ],
+        "title": "AnalyzeResponse"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorBody"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "InsightsResponse": {
+        "properties": {
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "profile": {
+            "type": "string",
+            "title": "Profile"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Strengths"
+          },
+          "weaknesses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weaknesses"
+          },
+          "next_match_goals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Match Goals"
+          },
+          "early_death_rate": {
+            "type": "number",
+            "title": "Early Death Rate"
+          },
+          "top_10_rate": {
+            "type": "number",
+            "title": "Top 10 Rate"
+          },
+          "kill_rate": {
+            "type": "number",
+            "title": "Kill Rate"
+          },
+          "trend": {
+            "$ref": "#/components/schemas/TrendResponse"
+          },
+          "map_performance": {
+            "items": {
+              "$ref": "#/components/schemas/MapPerformanceResponse"
+            },
+            "type": "array",
+            "title": "Map Performance"
+          },
+          "by_map": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MapStats"
+            },
+            "type": "object",
+            "title": "By Map"
+          },
+          "advice": {
+            "type": "string",
+            "title": "Advice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "headline",
+          "profile",
+          "strengths",
+          "weaknesses",
+          "next_match_goals",
+          "early_death_rate",
+          "top_10_rate",
+          "kill_rate",
+          "trend",
+          "map_performance",
+          "by_map",
+          "advice"
+        ],
+        "title": "InsightsResponse"
+      },
+      "MapPerformanceResponse": {
+        "properties": {
+          "map_name": {
+            "type": "string",
+            "title": "Map Name"
+          },
+          "matches": {
+            "type": "integer",
+            "title": "Matches"
+          },
+          "avg_placement": {
+            "type": "number",
+            "title": "Avg Placement"
+          },
+          "avg_kills": {
+            "type": "number",
+            "title": "Avg Kills"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "map_name",
+          "matches",
+          "avg_placement",
+          "avg_kills",
+          "avg_damage"
+        ],
+        "title": "MapPerformanceResponse"
+      },
+      "MapStats": {
+        "properties": {
+          "kills_per_match": {
+            "type": "number",
+            "title": "Kills Per Match"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kills_per_match",
+          "win_rate",
+          "avg_damage"
+        ],
+        "title": "MapStats"
+      },
+      "MatchResponse": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "title": "Match Id"
+          },
+          "played_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Played At"
+          },
+          "map": {
+            "type": "string",
+            "title": "Map"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "placement": {
+            "type": "integer",
+            "title": "Placement"
+          },
+          "kills": {
+            "type": "integer",
+            "title": "Kills"
+          },
+          "assists": {
+            "type": "integer",
+            "title": "Assists"
+          },
+          "damage": {
+            "type": "number",
+            "title": "Damage"
+          },
+          "survival_time": {
+            "type": "number",
+            "title": "Survival Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "match_id",
+          "played_at",
+          "map",
+          "mode",
+          "placement",
+          "kills",
+          "assists",
+          "damage",
+          "survival_time"
+        ],
+        "title": "MatchResponse"
+      },
+      "PlayerResponse": {
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "player_id": {
+            "type": "string",
+            "title": "Player Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nickname",
+          "player_id"
+        ],
+        "title": "PlayerResponse"
+      },
+      "SummaryResponse": {
+        "properties": {
+          "matches": {
+            "type": "integer",
+            "title": "Matches"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "avg_placement": {
+            "type": "number",
+            "title": "Avg Placement"
+          },
+          "avg_kills": {
+            "type": "number",
+            "title": "Avg Kills"
+          },
+          "kills_per_death": {
+            "type": "number",
+            "title": "Kills Per Death"
+          },
+          "kills_per_match": {
+            "type": "number",
+            "title": "Kills Per Match"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          },
+          "avg_assists": {
+            "type": "number",
+            "title": "Avg Assists"
+          },
+          "avg_survival_time": {
+            "type": "number",
+            "title": "Avg Survival Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "matches",
+          "wins",
+          "win_rate",
+          "avg_placement",
+          "avg_kills",
+          "kills_per_death",
+          "kills_per_match",
+          "avg_damage",
+          "avg_assists",
+          "avg_survival_time"
+        ],
+        "title": "SummaryResponse"
+      },
+      "TrendResponse": {
+        "properties": {
+          "recent_matches": {
+            "type": "integer",
+            "title": "Recent Matches"
+          },
+          "previous_matches": {
+            "type": "integer",
+            "title": "Previous Matches"
+          },
+          "placement_delta": {
+            "type": "number",
+            "title": "Placement Delta"
+          },
+          "kills_delta": {
+            "type": "number",
+            "title": "Kills Delta"
+          },
+          "damage_delta": {
+            "type": "number",
+            "title": "Damage Delta"
+          },
+          "survival_delta": {
+            "type": "number",
+            "title": "Survival Delta"
+          },
+          "early": {
+            "$ref": "#/components/schemas/TrendStats"
+          },
+          "recent": {
+            "$ref": "#/components/schemas/TrendStats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recent_matches",
+          "previous_matches",
+          "placement_delta",
+          "kills_delta",
+          "damage_delta",
+          "survival_delta",
+          "early",
+          "recent"
+        ],
+        "title": "TrendResponse"
+      },
+      "TrendStats": {
+        "properties": {
+          "kills_per_match": {
+            "type": "number",
+            "title": "Kills Per Match"
+          },
+          "avg_damage": {
+            "type": "number",
+            "title": "Avg Damage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kills_per_match",
+          "avg_damage"
+        ],
+        "title": "TrendStats"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
