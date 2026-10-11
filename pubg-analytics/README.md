@@ -1,7 +1,7 @@
 # PUBG Match Analytics
 
 This FastAPI application displays current-season aggregate statistics and detailed
-analytics for recent Solo/Duo/Squad FPP matches using the PUBG API. PUBG only
+analytics for recent Solo/Duo/Squad FPP and TPP matches using the PUBG API. PUBG only
 retains individual match details for the last 14 days, so full-season totals are
 shown separately from the analysis of up to 10 recent matches.
 Recent matches are stored in a database (SQLite locally, PostgreSQL on Railway).
@@ -92,8 +92,8 @@ only runtime dependencies from `requirements.txt`.
 
 `POST /analyze` accepts `{"nickname":"PlayerName","mode":"duo-fpp"}`.
 The API accepts `solo`, `solo-fpp`, `duo`, `duo-fpp`, `squad`, and `squad-fpp`;
-the interface offers Solo/Duo/Squad FPP. If no mode is specified, `PUBG_MODE`
-is used. A successful response includes statistics for the full active season,
+the interface offers Solo/Duo/Squad in both FPP and TPP. If no mode is specified,
+`PUBG_MODE` is used. A successful response includes statistics for the full active season,
 up to 10 of the most recent available detailed matches, and insights for that
 recent sample. The PUBG API does not provide detailed match history older than
 14 days. Errors use the format

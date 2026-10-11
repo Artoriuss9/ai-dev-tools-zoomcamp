@@ -107,6 +107,47 @@ async def test_get_current_season_player_parses_stats_and_mode_matches():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "relationship"),
+    [
+        ("solo", "matchesSolo"),
+        ("duo", "matchesDuo"),
+        ("squad", "matchesSquad"),
+    ],
+)
+async def test_get_current_season_player_supports_tpp_modes(mode, relationship):
+    client = PUBGClient("key", "steam", "https://tpp-season.api")
+    client._current_seasons[(client.base_url, client.platform)] = (
+        float("inf"),
+        "current-season",
+    )
+    client._get = AsyncMock(return_value={
+        "data": {
+            "attributes": {
+                "gameModeStats": {
+                    mode: {
+                        "roundsPlayed": 3,
+                        "wins": 0,
+                        "top10s": 1,
+                        "kills": 4,
+                        "damageDealt": 500,
+                        "timeSurvived": 1000,
+                        "assists": 0,
+                    }
+                }
+            },
+            "relationships": {relationship: {"data": [{"id": f"{mode}-match"}]}},
+        }
+    })
+
+    season = await client.get_current_season_player("account.1", mode)
+
+    assert season.match_ids == [f"{mode}-match"]
+    assert season.stats is not None
+    assert season.stats.matches == 3
+
+
+@pytest.mark.asyncio
 async def test_get_current_season_player_rejects_malformed_season_stats():
     client = PUBGClient("key", "steam", "https://season-invalid.api")
     client._current_seasons[(client.base_url, client.platform)] = (

@@ -1,4 +1,11 @@
+from backend.app.constants import display_mode_name
 from backend.app.service import AnalysisService
+
+
+def test_tpp_match_modes_are_displayed_as_tpp():
+    assert display_mode_name("solo") == "Solo TPP"
+    assert display_mode_name("duo") == "Duo TPP"
+    assert display_mode_name("squad") == "Squad TPP"
 
 
 def test_analyze_filters_mode_and_deduplicates(db, sample_player, sample_matches):

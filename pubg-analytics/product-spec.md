@@ -9,7 +9,7 @@ recent match performance and identify what to focus on in the next match.
 
 - **User:** a PUBG player who can be looked up by in-game nickname.
 - **Goal:** review current-season totals and up to ten recent detailed matches
-  in Solo FPP, Duo FPP, or Squad FPP, then get concise, explainable insights.
+  in Solo, Duo, or Squad FPP/TPP, then get concise, explainable insights.
 
 ## User flow
 
@@ -25,7 +25,7 @@ recent match performance and identify what to focus on in the next match.
 ## Functional requirements
 
 - Keep the PUBG API key on the server; never send it to the browser.
-- Let the user select Solo FPP, Duo FPP, or Squad FPP.
+- Let the user select Solo, Duo, or Squad in FPP or TPP.
 - Show full-season aggregates from the PUBG season-stats endpoint and analyze
   no more than ten recent individual matches for detailed insights.
 - Clearly distinguish full-season totals from individual match data, which the

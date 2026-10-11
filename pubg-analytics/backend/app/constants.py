@@ -14,11 +14,11 @@ MAP_NAMES = {
 }
 
 MODE_NAMES = {
-    "solo": "Solo",
+    "solo": "Solo TPP",
     "solo-fpp": "Solo FPP",
-    "duo": "Duo",
+    "duo": "Duo TPP",
     "duo-fpp": "Duo FPP",
-    "squad": "Squad",
+    "squad": "Squad TPP",
     "squad-fpp": "Squad FPP",
 }
 

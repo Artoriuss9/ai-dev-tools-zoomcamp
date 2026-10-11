@@ -27,9 +27,16 @@
         <label for="gameMode" class="mode-label">Game mode</label>
         <div class="search-row">
           <select id="gameMode" name="mode">
-            <option value="solo-fpp">Solo FPP</option>
-            <option value="duo-fpp">Duo FPP</option>
-            <option value="squad-fpp">Squad FPP</option>
+            <optgroup label="First-person perspective">
+              <option value="solo-fpp">Solo FPP</option>
+              <option value="duo-fpp">Duo FPP</option>
+              <option value="squad-fpp">Squad FPP</option>
+            </optgroup>
+            <optgroup label="Third-person perspective">
+              <option value="solo">Solo TPP</option>
+              <option value="duo">Duo TPP</option>
+              <option value="squad">Squad TPP</option>
+            </optgroup>
           </select>
         </div>
         <div class="action-row">
