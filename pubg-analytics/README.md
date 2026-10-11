@@ -135,7 +135,7 @@ node --test tests/frontend/*.test.js
 See the [threat model](security/threat-model.md),
 [AI tools and data policy](security/tool-data-policy.md),
 [security scan policy](security/scan-policy.md), and
-[Module 5 limitations](security/extension-notes.md).
+[tool and data permissions](docs/permissions.md).
 GitHub Actions publishes Bandit and `pip-audit` reports and saves Compose stack
 diagnostics as a workflow artifact.
 

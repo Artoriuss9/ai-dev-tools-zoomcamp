@@ -9,8 +9,8 @@ and data boundaries, and running verification commands.
 
 Representative task prompts for this project include:
 
-- “Compare this application with the final-project rubric and list missing
-  deliverables without assuming Module 5 was completed.”
+- “Compare this application with the final-project rubric and list any
+  missing deliverables.”
 - “Add an isolated integration test for the player lookup → filtering →
   persistence → API response flow using a fake PUBG client.”
 - “Generate and test an OpenAPI contract from the application's response
@@ -19,8 +19,8 @@ Representative task prompts for this project include:
   and secret leakage.”
 
 These are representative prompts, not a claim that every earlier interaction
-was recorded verbatim. No autonomous agent or external AI service receives
-`.env`, API keys, or real player records.
+was recorded verbatim. No external AI service receives `.env`, API keys, or
+real player records.
 
 ## Review and verification loop
 

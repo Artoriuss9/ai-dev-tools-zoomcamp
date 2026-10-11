@@ -1,9 +1,7 @@
 # Tool and data permissions
 
-This project has not completed the course's Module 5 agent-extension work.
-There are no project-defined MCP servers, agent hooks, plugins, or delegated
-agents. This document describes the permissions the normal application and
-development workflow require; it is not an agent extension pack.
+This document describes the permissions required by the application and its
+development workflow.
 
 | Component | Required access | Must not receive |
 | --- | --- | --- |

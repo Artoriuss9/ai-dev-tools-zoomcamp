@@ -17,5 +17,4 @@ code, setup instructions, and deployment configuration.
   Grafana, alerts, and a headless responder.
 - [Final - PUBG Match Analytics](pubg-analytics/README.md): a full-stack PUBG
   match analytics app with a FastAPI API, SQLite locally, Railway PostgreSQL,
-  Docker Compose, CI, and observability. The app is deployed on Railway; the
-  Module 5 agent extension pack is intentionally not included.
+  Docker Compose, CI, and observability. The app is deployed on Railway.

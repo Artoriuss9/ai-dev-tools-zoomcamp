@@ -53,4 +53,3 @@ recent match performance and identify what to focus on in the next match.
 - PUBG account authentication or writes to player accounts.
 - Competitive rankings across players.
 - LLM-generated advice; current insights are deterministic calculations.
-- Module 5 agent extensions (not completed for this project).
