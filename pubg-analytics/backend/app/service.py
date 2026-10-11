@@ -9,7 +9,18 @@ from .exceptions import InvalidPUBGDataError
 from .models import Match, PlayerMatch
 from .pubg_client import PUBGClient
 from .repository import PlayerRepository
-from .schemas import AnalyzeResponse, InsightsResponse, MapPerformanceResponse, MapStats, MatchResponse, PlayerResponse, SummaryResponse, TrendResponse
+from .schemas import (
+    AnalyzeResponse,
+    InsightsResponse,
+    MapPerformanceResponse,
+    MapStats,
+    MatchResponse,
+    PlayerResponse,
+    SeasonComparisonResponse,
+    SeasonSummaryResponse,
+    SummaryResponse,
+    TrendResponse,
+)
 from .constants import display_map_name, display_mode_name
 
 logger = logging.getLogger(__name__)
@@ -23,29 +34,26 @@ class AnalysisService:
         self.db = db
         self.mode = mode
 
-    async def analyze(self, nickname: str) -> AnalyzeResponse:
+    async def analyze(self, nickname: str, mode: str | None = None) -> AnalyzeResponse:
+        selected_mode = mode or self.mode
         api_player = await self.client.find_player(nickname)
+        api_season = await self.client.get_current_season_player(api_player.player_id, selected_mode)
 
-        unique_match_ids = list(dict.fromkeys(api_player.match_ids))
+        unique_match_ids = list(dict.fromkeys(api_season.match_ids))
         selected_ids: list[str] = []
         match_data = []
         for match_id in unique_match_ids:
-            # The player endpoint returns recent match references; mode is known on each match.
             try:
                 data = await self.client.get_match(match_id, api_player.player_id)
             except InvalidPUBGDataError:
                 logger.exception("Invalid match payload for %s", match_id)
                 raise
-            if data.game_mode == self.mode:
+            if data.game_mode == selected_mode:
                 selected_ids.append(match_id)
                 match_data.append(data)
                 if len(match_data) == self.MAX_MATCHES:
                     break
 
-        if not match_data:
-            raise InvalidPUBGDataError(f"No matches found for configured mode {self.mode}")
-
-        # All external calls succeeded; save everything atomically.
         repo = PlayerRepository(self.db)
         player = repo.upsert_player(api_player)
         for data in match_data:
@@ -60,16 +68,62 @@ class AnalysisService:
         )
         rows = list(self.db.scalars(stmt).all())
         rows.sort(key=lambda row: row.match.played_at, reverse=True)
-        summary = calculate_summary(rows)
-        insights = calculate_insights(rows)
+        summary = calculate_summary(rows) if rows else None
+        insights = calculate_insights(rows) if rows else None
+        season_stats = api_season.stats
+        season_summary = None
+        if season_stats is not None:
+            season_summary = SeasonSummaryResponse(
+                season_id=api_season.season_id,
+                mode=selected_mode,
+                matches=season_stats.matches,
+                wins=season_stats.wins,
+                win_rate=round(season_stats.wins / season_stats.matches * 100, 2)
+                if season_stats.matches
+                else 0,
+                top_10_rate=round(season_stats.top_10s / season_stats.matches * 100, 2)
+                if season_stats.matches
+                else 0,
+                total_kills=season_stats.kills,
+                kills_per_match=round(season_stats.kills / season_stats.matches, 2)
+                if season_stats.matches
+                else 0,
+                damage_per_match=round(season_stats.damage / season_stats.matches, 2)
+                if season_stats.matches
+                else 0,
+                avg_survival_time=round(season_stats.survival_time / season_stats.matches / 60, 2)
+                if season_stats.matches
+                else 0,
+                total_assists=season_stats.assists,
+            )
+        season_comparison = None
+        if summary is not None and season_summary is not None:
+            season_comparison = SeasonComparisonResponse(
+                recent_matches=summary.matches,
+                season_kills_per_match=season_summary.kills_per_match,
+                recent_kills_per_match=summary.kills_per_match,
+                kills_delta_percent=round(
+                    (summary.kills_per_match / season_summary.kills_per_match - 1) * 100,
+                    2,
+                )
+                if season_summary.kills_per_match
+                else None,
+                season_damage_per_match=season_summary.damage_per_match,
+                recent_damage_per_match=summary.avg_damage,
+                damage_delta_percent=round(
+                    (summary.avg_damage / season_summary.damage_per_match - 1) * 100,
+                    2,
+                )
+                if season_summary.damage_per_match
+                else None,
+            )
         fetched_at = datetime.now(timezone.utc)
 
         return AnalyzeResponse(
             player=PlayerResponse(nickname=player.nickname, player_id=player.player_id),
-            summary=SummaryResponse(**summary.__dict__),
+            summary=SummaryResponse(**summary.__dict__) if summary else None,
             insights=InsightsResponse(
                 headline=insights.headline,
-                profile=insights.profile,
                 strengths=insights.strengths,
                 weaknesses=insights.weaknesses,
                 next_match_goals=insights.next_match_goals,
@@ -86,6 +140,7 @@ class AnalysisService:
                     early=insights.trend.early.__dict__,
                     recent=insights.trend.recent.__dict__,
                 ),
+                season_comparison=season_comparison,
                 map_performance=[
                     MapPerformanceResponse(
                         map_name=display_map_name(item.map_name),
@@ -101,7 +156,9 @@ class AnalysisService:
                     for map_name, stats in insights.by_map.items()
                 },
                 advice=insights.advice,
-            ),
+            ) if insights else None,
+            season_summary=season_summary,
+            mode=selected_mode,
             matches=[
                 MatchResponse(
                     match_id=row.match.match_id,

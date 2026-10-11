@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 
 class StubService:
-    async def analyze(self, nickname: str):
+    async def analyze(self, nickname: str, mode: str | None = None):
         raise PlayerNotFoundError("Player not found")
 
 
@@ -56,6 +56,14 @@ def test_analyze_invalid_nickname():
     settings.pubg_api_key = "test-key"
     with TestClient(app) as client:
         response = client.post("/analyze", json={"nickname": ""})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_analyze_rejects_unsupported_game_mode():
+    settings.pubg_api_key = "test-key"
+    with TestClient(app) as client:
+        response = client.post("/analyze", json={"nickname": "Player", "mode": "arcade"})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 

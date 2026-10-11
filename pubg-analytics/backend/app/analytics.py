@@ -11,7 +11,7 @@ class Summary:
     win_rate: float
     avg_placement: float
     avg_kills: float
-    kills_per_death: float
+    kills_per_death: float | None
     kills_per_match: float
     avg_damage: float
     avg_assists: float
@@ -55,7 +55,6 @@ class MapPerformance:
 @dataclass(frozen=True)
 class Insights:
     headline: str
-    profile: str
     strengths: list[str]
     weaknesses: list[str]
     next_match_goals: list[str]
@@ -75,14 +74,15 @@ def calculate_summary(rows: list[PlayerMatch]) -> Summary:
 
     total_kills = sum(row.kills for row in rows)
     wins = sum(1 for row in rows if row.placement == 1)
-    losses = count - wins
+    deaths = sum(1 for row in rows if row.death_type is not None and row.death_type != "alive")
+    deaths_known = all(row.death_type is not None for row in rows)
     return Summary(
         matches=count,
         wins=wins,
         win_rate=round(wins / count * 100, 2),
         avg_placement=round(sum(row.placement for row in rows) / count, 2),
         avg_kills=round(total_kills / count, 2),
-        kills_per_death=round(total_kills / losses, 2) if losses else float(total_kills),
+        kills_per_death=round(total_kills / deaths, 2) if deaths and deaths_known else None,
         kills_per_match=round(total_kills / count, 2),
         avg_damage=round(sum(row.damage for row in rows) / count, 2),
         avg_assists=round(sum(row.assists for row in rows) / count, 2),
@@ -109,55 +109,46 @@ def calculate_insights(rows: list[PlayerMatch]) -> Insights:
     strengths: list[str] = []
     weaknesses: list[str] = []
     if top_10_rate >= 50:
-        strengths.append(f"Топ-10 в {top_10_rate:g}% матчей")
+        strengths.append(f"Top 10 in {top_10_rate:g}% of matches")
     if average_survival >= 12 * 60:
-        strengths.append("Хорошая выживаемость")
+        strengths.append("Strong survival")
     if average_kills >= 2:
-        strengths.append(f"В среднем {average_kills:.1f} убийства за матч")
+        strengths.append(f"{average_kills:.1f} kills per match on average")
     if average_damage >= 300:
-        strengths.append("Уверенное влияние на перестрелки")
+        strengths.append("Strong impact in firefights")
     if early_death_rate >= 30:
-        weaknesses.append(f"Ранние смерти в {early_death_rate:g}% матчей")
+        weaknesses.append(f"Early deaths in {early_death_rate:g}% of matches")
     if average_damage < 250:
-        weaknesses.append("Низкий средний урон")
+        weaknesses.append("Low average damage")
     if average_placement > 25:
-        weaknesses.append("Часто не хватает стабильного позиционирования")
+        weaknesses.append("Positioning is often inconsistent")
     if kill_rate < 50:
-        weaknesses.append("Мало матчей с хотя бы одним убийством")
+        weaknesses.append("Few matches with at least one kill")
     if not strengths:
-        strengths.append("Есть база для роста: статистика уже собирается по каждой катке")
+        strengths.append("A solid baseline: stats are being tracked for every match")
     if not weaknesses:
-        weaknesses.append("Явных провалов в последних матчах не видно")
+        weaknesses.append("No clear weaknesses in recent matches")
 
     goals: list[str] = []
     if early_death_rate >= 30:
-        goals.append("Пережить первые 5 минут без рискованной перестрелки")
+        goals.append("Survive the first 5 minutes without taking a risky fight")
     if average_damage < 250:
-        goals.append("Нанести минимум 250 урона")
+        goals.append("Deal at least 250 damage")
     if top_10_rate < 50:
-        goals.append("Попасть в топ-10")
+        goals.append("Reach the top 10")
     if average_kills < 2:
-        goals.append("Найти хотя бы один контролируемый бой после первой ротации")
+        goals.append("Take at least one controlled fight after the first rotation")
     if not goals:
-        goals.append("Сохранить текущую стабильность и искать один дополнительный выигранный бой")
+        goals.append("Maintain your consistency and look for one more winning fight")
 
     if early_death_rate >= 30:
-        headline = "Главный резерв роста — пережить раннюю игру"
+        headline = "Your biggest opportunity is surviving the early game"
     elif average_damage < 250:
-        headline = "Ты выживаешь, но можешь сильнее влиять на бои"
+        headline = "You survive, but could have more impact in fights"
     elif top_10_rate < 50:
-        headline = "Следующая цель — стабильнее доходить до топ-10"
+        headline = "Next goal: reach the top 10 more consistently"
     else:
-        headline = "Форма выглядит стабильной: пора улучшать качество боёв"
-
-    if average_kills >= 3 and average_placement > 25:
-        profile = "Агрессивный игрок: находишь фраги, но иногда теряешь матч после перестрелок"
-    elif average_survival >= 12 * 60 and average_damage < 250:
-        profile = "Осторожный игрок: хорошо выживаешь, но редко создаёшь давление"
-    elif top_10_rate >= 60:
-        profile = "Стабильный игрок: позиционирование уже приносит результат"
-    else:
-        profile = "Развивающийся игрок: результат пока зависит от конкретной катки"
+        headline = "Your form looks steady; focus on taking better fights"
 
     rows_by_time = sorted(
         rows,
@@ -195,13 +186,13 @@ def calculate_insights(rows: list[PlayerMatch]) -> Insights:
     damage_change = (recent_stats.avg_damage - early_stats.avg_damage) / early_stats.avg_damage \
         if early_stats.avg_damage else 0
     if kills_change >= 0.2:
-        advice = "Отличный прогресс! Ваша эффективность в бою растет. Продолжайте в том же духе."
+        advice = "Great progress! Your combat effectiveness is improving. Keep it up."
     elif damage_change <= -0.15:
-        advice = "Вы стали наносить меньше урона за матч. Возможно, вы стали осторожничать или чаще гибнуть в начале. Попробуйте активнее участвовать в перестрелках."
+        advice = "Your damage per match has dropped. You may be playing more cautiously or dying earlier. Try taking a more active role in firefights."
     elif abs(kills_change) <= 0.1 and abs(damage_change) <= 0.1:
-        advice = "Ваша игра стабильна. Чтобы расти, попробуйте менять стратегию на разных картах."
+        advice = "Your performance is consistent. Try adapting your strategy to each map to keep improving."
     else:
-        advice = "Сравните последние матчи с ранними и закрепите то, что помогает чаще выигрывать перестрелки."
+        advice = "Compare your recent matches with earlier ones and build on what helps you win more fights."
 
     grouped: dict[str, list[PlayerMatch]] = defaultdict(list)
     for row in rows:
@@ -227,7 +218,6 @@ def calculate_insights(rows: list[PlayerMatch]) -> Insights:
 
     return Insights(
         headline=headline,
-        profile=profile,
         strengths=strengths[:3],
         weaknesses=weaknesses[:3],
         next_match_goals=goals[:3],

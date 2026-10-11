@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from backend.app.exceptions import PlayerNotFoundError, RateLimitedError
+from backend.app.exceptions import (
+    InvalidPUBGDataError,
+    PlayerNotFoundError,
+    PUBGAPIError,
+    RateLimitedError,
+)
 from backend.app.pubg_client import PUBGClient
 
 
@@ -51,3 +56,114 @@ async def test_find_player_maps_429():
         client = PUBGClient("key", "steam", "https://api.pubg.com")
         with pytest.raises(RateLimitedError):
             await client.find_player("busy")
+
+
+@pytest.mark.asyncio
+async def test_get_current_season_player_parses_stats_and_mode_matches():
+    client = PUBGClient("key", "steam", "https://season.api")
+    client._current_seasons.pop((client.base_url, client.platform), None)
+
+    client._get = AsyncMock(side_effect=[
+        {"data": [
+            {"id": "old-season", "attributes": {"isCurrentSeason": False}},
+            {"id": "current-season", "attributes": {"isCurrentSeason": True}},
+        ]},
+        {
+            "data": {
+                "attributes": {
+                    "gameModeStats": {
+                        "duo-fpp": {
+                            "roundsPlayed": 12,
+                            "wins": 2,
+                            "top10s": 7,
+                            "kills": 18,
+                            "damageDealt": 3200.5,
+                            "timeSurvived": 9000,
+                            "assists": 8,
+                        }
+                    }
+                },
+                "relationships": {
+                    "matchesDuoFPP": {
+                        "data": [{"id": "duo-1"}, {"id": "duo-2"}]
+                    }
+                },
+            }
+        },
+    ])
+
+    season = await client.get_current_season_player("account.1", "duo-fpp")
+
+    assert season.season_id == "current-season"
+    assert season.match_ids == ["duo-1", "duo-2"]
+    assert season.stats is not None
+    assert season.stats.matches == 12
+    assert season.stats.wins == 2
+    assert season.stats.damage == 3200.5
+    assert [call.args[0] for call in client._get.await_args_list] == [
+        "seasons",
+        "players/account.1/seasons/current-season",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_current_season_player_rejects_malformed_season_stats():
+    client = PUBGClient("key", "steam", "https://season-invalid.api")
+    client._current_seasons[(client.base_url, client.platform)] = (
+        float("inf"),
+        "current-season",
+    )
+
+    client._get = AsyncMock(return_value={
+        "data": {
+            "attributes": {"gameModeStats": {"solo-fpp": {"roundsPlayed": "invalid"}}},
+            "relationships": {},
+        }
+    })
+
+    with pytest.raises(InvalidPUBGDataError, match="roundsPlayed"):
+        await client.get_current_season_player("account.1", "solo-fpp")
+
+
+@pytest.mark.asyncio
+async def test_non_player_404_is_not_reported_as_player_not_found():
+    mock = AsyncMock()
+    mock.get = AsyncMock(return_value=response(404, {"errors": []}))
+    with patch("httpx.AsyncClient") as client_cls:
+        client_cls.return_value.__aenter__.return_value = mock
+        client = PUBGClient("key", "steam", "https://api.pubg.com")
+        with pytest.raises(PUBGAPIError, match="resource was not found"):
+            await client.get_match("missing-match", "account.1")
+
+
+@pytest.mark.asyncio
+async def test_get_match_parses_death_type():
+    payload = {
+        "data": {
+            "attributes": {
+                "mapName": "Baltic_Main",
+                "gameMode": "solo-fpp",
+                "createdAt": "2026-09-01T12:00:00Z",
+            }
+        },
+        "included": [{
+            "type": "participant",
+            "attributes": {
+                "stats": {
+                    "playerId": "account.1",
+                    "winPlace": 1,
+                    "kills": 4,
+                    "assists": 0,
+                    "damageDealt": 500,
+                    "timeSurvived": 1200,
+                    "deathType": "alive",
+                }
+            },
+        }],
+    }
+    client = PUBGClient("key", "steam", "https://api.pubg.com")
+    client._get = AsyncMock(return_value=payload)
+
+    match = await client.get_match("match-1", "account.1")
+
+    assert match.death_type == "alive"

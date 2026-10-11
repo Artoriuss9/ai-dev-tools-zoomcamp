@@ -3,6 +3,7 @@ import { escapeHtml, formatNumber } from './presentation.js';
 
 const form = document.getElementById('analyzeForm');
 const input = document.getElementById('nickname');
+const gameMode = document.getElementById('gameMode');
 const analyzeButton = document.getElementById('analyzeButton');
 const refreshButton = document.getElementById('refreshButton');
 const result = document.getElementById('result');
@@ -11,10 +12,17 @@ const playerName = document.getElementById('playerName');
 const playerId = document.getElementById('playerId');
 const analyzedCount = document.getElementById('analyzedCount');
 const updatedAt = document.getElementById('updatedAt');
+const seasonTitle = document.getElementById('seasonTitle');
+const seasonMode = document.getElementById('seasonMode');
+const seasonNote = document.getElementById('seasonNote');
+const seasonMetrics = document.getElementById('seasonMetrics');
+const seasonComparisonCard = document.getElementById('seasonComparisonCard');
+const seasonComparison = document.getElementById('seasonComparison');
+const recentAnalysis = document.getElementById('recentAnalysis');
+const noRecentMatches = document.getElementById('noRecentMatches');
 const matchesBody = document.getElementById('matchesBody');
 const metrics = document.getElementById('metrics');
 const insightHeadline = document.getElementById('insightHeadline');
-const playerProfile = document.getElementById('playerProfile');
 const goalsList = document.getElementById('goalsList');
 const strengthsList = document.getElementById('strengthsList');
 const weaknessesList = document.getElementById('weaknessesList');
@@ -31,17 +39,30 @@ const metricLabels = {
   win_rate: 'Win rate',
   avg_placement: 'Avg. placement',
   avg_kills: 'Avg. kills',
-  kills_per_death: 'K/D',
+  kills_per_death: 'K/D (kills/deaths)',
   kills_per_match: 'K/M',
   avg_damage: 'Avg. damage',
   avg_assists: 'Avg. assists',
   avg_survival_time: 'Avg. survival (min)'
 };
 
+const seasonMetricLabels = {
+  matches: 'Matches played',
+  wins: 'Wins',
+  win_rate: 'Win rate',
+  top_10_rate: 'Top-10 rate',
+  total_kills: 'Total kills',
+  kills_per_match: 'Kills per match',
+  damage_per_match: 'Damage per match',
+  avg_survival_time: 'Avg. survival (min)',
+  total_assists: 'Total assists'
+};
+
 let lastNickname = '';
 
 function setLoading(isLoading) {
   analyzeButton.disabled = isLoading;
+  gameMode.disabled = isLoading;
   refreshButton.disabled = isLoading || !lastNickname;
   analyzeButton.textContent = isLoading ? 'Loading...' : 'Analyze';
 }
@@ -50,6 +71,8 @@ function clearResult() {
   result.hidden = true;
   matchesBody.innerHTML = '';
   metrics.innerHTML = '';
+  seasonMetrics.innerHTML = '';
+  seasonComparison.innerHTML = '';
 }
 
 function showError(message) {
@@ -67,13 +90,35 @@ function render(data) {
   playerId.textContent = data.player.player_id;
   analyzedCount.textContent = data.analyzed_count;
   updatedAt.textContent = new Date(data.updated_at).toLocaleString();
+  const selectedModeLabel = gameMode.options[gameMode.selectedIndex].text;
+  document.getElementById('modeBadge').textContent = `Mode: ${selectedModeLabel}`;
+  seasonMode.textContent = selectedModeLabel;
 
-  metrics.innerHTML = Object.entries(data.summary).map(([key, value]) => {
-    const formatted = key === 'win_rate' ? `${Number(value).toFixed(2)}%` : Number(value).toFixed(2);
-    return `<div class="metric"><div class="metric-label">${metricLabels[key] || key}</div><div class="metric-value">${formatted}</div></div>`;
-  }).join('');
+  if (data.season_summary) {
+    seasonTitle.textContent = `Current season: ${data.season_summary.season_id}`;
+    seasonNote.textContent = 'Season totals cover all matches reported by PUBG API for this mode.';
+    seasonMetrics.innerHTML = Object.entries(data.season_summary)
+      .filter(([key]) => key !== 'season_id' && key !== 'mode')
+      .map(([key, value]) => {
+        const formatted = key.endsWith('_rate') ? `${Number(value).toFixed(2)}%` : Number(value).toFixed(2);
+        return `<div class="metric"><div class="metric-label">${seasonMetricLabels[key] || key}</div><div class="metric-value">${formatted}</div></div>`;
+      }).join('');
+  } else {
+    seasonTitle.textContent = 'Current season';
+    seasonNote.textContent = 'PUBG API has no season totals for this mode.';
+  }
 
-  renderInsights(data.insights);
+  recentAnalysis.hidden = !data.summary || !data.insights;
+  noRecentMatches.hidden = !recentAnalysis.hidden;
+  if (data.summary && data.insights) {
+    metrics.innerHTML = Object.entries(data.summary).map(([key, value]) => {
+      const formatted = value === null
+        ? '—'
+        : key === 'win_rate' ? `${Number(value).toFixed(2)}%` : Number(value).toFixed(2);
+      return `<div class="metric"><div class="metric-label">${metricLabels[key] || key}</div><div class="metric-value">${formatted}</div></div>`;
+    }).join('');
+    renderInsights(data.insights);
+  }
 
   matchesBody.innerHTML = data.matches.map(match => `
     <tr>
@@ -93,7 +138,6 @@ function render(data) {
 
 function renderInsights(insights) {
   insightHeadline.textContent = insights.headline;
-  playerProfile.textContent = insights.profile;
   insightAdvice.textContent = insights.advice;
   goalsList.innerHTML = insights.next_match_goals.map(goal => `<li>${escapeHtml(goal)}</li>`).join('');
   strengthsList.innerHTML = insights.strengths.map(item => `<li>${escapeHtml(item)}</li>`).join('');
@@ -111,6 +155,24 @@ function renderInsights(insights) {
     </div>`).join('');
 
   const trend = insights.trend;
+  const comparison = insights.season_comparison;
+  seasonComparisonCard.hidden = !comparison;
+  if (comparison) {
+    const formatDelta = value => value === null
+      ? 'N/A'
+      : `${value > 0 ? '+' : ''}${formatNumber(value)}%`;
+    seasonComparison.innerHTML = [
+      ['Kills per match', comparison.recent_kills_per_match, comparison.season_kills_per_match, comparison.kills_delta_percent],
+      ['Damage per match', comparison.recent_damage_per_match, comparison.season_damage_per_match, comparison.damage_delta_percent]
+    ].map(([label, recent, season, delta]) => `
+      <div class="comparison-column">
+        <strong>${label}</strong>
+        <span>Recent (${comparison.recent_matches}) <b>${formatNumber(recent)}</b></span>
+        <span>Season avg. <b>${formatNumber(season)}</b></span>
+        <span>Difference <b>${formatDelta(delta)}</b></span>
+      </div>`).join('');
+  }
+
   trendGrid.innerHTML = [
     ['Placement', trend.placement_delta, 'place'],
     ['Kills', trend.kills_delta, 'number'],
@@ -124,8 +186,8 @@ function renderInsights(insights) {
   }).join('');
 
   trendComparison.innerHTML = [
-    ['Early', trend.early],
-    ['Recent', trend.recent]
+    [`Previous (${trend.previous_matches})`, trend.early],
+    [`Recent (${trend.recent_matches})`, trend.recent]
   ].map(([label, stats]) => `
     <div class="comparison-column">
       <strong>${label}</strong>
@@ -155,7 +217,7 @@ async function runAnalysis(nickname) {
   clearResult();
   setLoading(true);
   try {
-    const data = await analyzePlayer(nickname);
+    const data = await analyzePlayer(nickname, gameMode.value);
     render(data);
     lastNickname = nickname;
   } catch (error) {

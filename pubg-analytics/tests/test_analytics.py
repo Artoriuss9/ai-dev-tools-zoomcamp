@@ -4,12 +4,13 @@ from backend.app.analytics import calculate_insights, calculate_summary
 from backend.app.models import Match, PlayerMatch
 
 
-def make_row(placement, kills, assists, damage, survival):
+def make_row(placement, kills, assists, damage, survival, death_type="byplayer"):
     return PlayerMatch(
         player_id="p",
         match_id=f"m{placement}",
         placement=placement,
         kills=kills,
+        death_type=death_type,
         assists=assists,
         damage=damage,
         survival_time=survival,
@@ -18,7 +19,7 @@ def make_row(placement, kills, assists, damage, survival):
 
 def test_calculate_summary_rounds_and_counts():
     summary = calculate_summary([
-        make_row(1, 4, 1, 500, 600),
+        make_row(1, 4, 1, 500, 600, "alive"),
         make_row(5, 2, 3, 200, 300),
     ])
     assert summary.matches == 2
@@ -31,6 +32,26 @@ def test_calculate_summary_rounds_and_counts():
     assert summary.avg_damage == 350.0
     assert summary.avg_assists == 2.0
     assert summary.avg_survival_time == 7.5
+
+
+def test_calculate_summary_uses_real_deaths_and_handles_zero_deaths():
+    summary = calculate_summary([
+        make_row(1, 5, 0, 400, 900, "alive"),
+        make_row(2, 3, 1, 300, 600, "byplayer"),
+        make_row(3, 2, 0, 200, 300, "suicide"),
+    ])
+    assert summary.kills_per_death == 5.0
+
+    no_deaths = calculate_summary([make_row(1, 4, 0, 500, 900, "alive")])
+    assert no_deaths.kills_per_death is None
+
+
+def test_calculate_summary_hides_kd_when_legacy_death_data_is_unknown():
+    summary = calculate_summary([
+        make_row(1, 4, 0, 500, 600, None),
+        make_row(5, 2, 0, 200, 300, "byplayer"),
+    ])
+    assert summary.kills_per_death is None
 
 
 def test_calculate_insights_creates_actionable_guidance():
@@ -52,7 +73,7 @@ def test_calculate_insights_creates_actionable_guidance():
 
     assert insights.early_death_rate == 50.0
     assert insights.top_10_rate == 50.0
-    assert "пережить раннюю игру" in insights.headline
+    assert "surviving the early game" in insights.headline
     assert insights.next_match_goals
     assert len(insights.map_performance) == 2
 
@@ -82,4 +103,4 @@ def test_calculate_insights_returns_map_stats_trend_and_advice():
     assert insights.trend.recent.kills_per_match == 2.5
     assert insights.trend.early.avg_damage == 200.0
     assert insights.trend.recent.avg_damage == 225.0
-    assert "Отличный прогресс" in insights.advice
+    assert "Great progress" in insights.advice

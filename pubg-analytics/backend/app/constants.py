@@ -22,7 +22,6 @@ MODE_NAMES = {
     "squad-fpp": "Squad FPP",
 }
 
-
 def display_map_name(value: str) -> str:
     return MAP_NAMES.get(value, value.replace("_Main", "").replace("_", " "))
 

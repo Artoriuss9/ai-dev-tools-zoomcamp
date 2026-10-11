@@ -24,7 +24,7 @@ def test_analyze_request_persists_data_and_returns_frontend_contract(
 
     try:
         with TestClient(app) as client:
-            response = client.post("/analyze", json={"nickname": "TestPlayer"})
+            response = client.post("/analyze", json={"nickname": "TestPlayer", "mode": "solo-fpp"})
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(overrides_before)
@@ -35,6 +35,8 @@ def test_analyze_request_persists_data_and_returns_frontend_contract(
     assert payload["analyzed_count"] == 2
     assert len(payload["matches"]) == 2
     assert payload["summary"]["matches"] == 2
+    assert payload["season_summary"]["matches"] == 2
+    assert payload["mode"] == "solo-fpp"
     assert payload["insights"]["trend"]["recent_matches"] == 1
     assert db.query(PlayerMatch).count() == 2
 

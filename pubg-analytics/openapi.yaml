@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PUBG Match Analytics",
-    "description": "Analyze the latest Solo FPP PUBG matches for a player.",
+    "description": "Analyze current-season PUBG statistics and recent match details.",
     "version": "1.0.0"
   },
   "paths": {
@@ -161,6 +161,25 @@
             "maxLength": 100,
             "minLength": 1,
             "title": "Nickname"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "solo",
+                  "solo-fpp",
+                  "duo",
+                  "duo-fpp",
+                  "squad",
+                  "squad-fpp"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
           }
         },
         "type": "object",
@@ -175,7 +194,14 @@
             "$ref": "#/components/schemas/PlayerResponse"
           },
           "summary": {
-            "$ref": "#/components/schemas/SummaryResponse"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "matches": {
             "items": {
@@ -185,7 +211,36 @@
             "title": "Matches"
           },
           "insights": {
-            "$ref": "#/components/schemas/InsightsResponse"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "season_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeasonSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "solo-fpp",
+              "duo",
+              "duo-fpp",
+              "squad",
+              "squad-fpp"
+            ],
+            "title": "Mode"
           },
           "analyzed_count": {
             "type": "integer",
@@ -213,6 +268,8 @@
           "summary",
           "matches",
           "insights",
+          "season_summary",
+          "mode",
           "analyzed_count",
           "updated_at"
         ],
@@ -280,10 +337,6 @@
             "type": "string",
             "title": "Headline"
           },
-          "profile": {
-            "type": "string",
-            "title": "Profile"
-          },
           "strengths": {
             "items": {
               "type": "string"
@@ -320,6 +373,16 @@
           "trend": {
             "$ref": "#/components/schemas/TrendResponse"
           },
+          "season_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeasonComparisonResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "map_performance": {
             "items": {
               "$ref": "#/components/schemas/MapPerformanceResponse"
@@ -342,7 +405,6 @@
         "type": "object",
         "required": [
           "headline",
-          "profile",
           "strengths",
           "weaknesses",
           "next_match_goals",
@@ -350,6 +412,7 @@
           "top_10_rate",
           "kill_rate",
           "trend",
+          "season_comparison",
           "map_performance",
           "by_map",
           "advice"
@@ -484,6 +547,134 @@
         ],
         "title": "PlayerResponse"
       },
+      "SeasonComparisonResponse": {
+        "properties": {
+          "recent_matches": {
+            "type": "integer",
+            "title": "Recent Matches"
+          },
+          "season_kills_per_match": {
+            "type": "number",
+            "title": "Season Kills Per Match"
+          },
+          "recent_kills_per_match": {
+            "type": "number",
+            "title": "Recent Kills Per Match"
+          },
+          "kills_delta_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kills Delta Percent"
+          },
+          "season_damage_per_match": {
+            "type": "number",
+            "title": "Season Damage Per Match"
+          },
+          "recent_damage_per_match": {
+            "type": "number",
+            "title": "Recent Damage Per Match"
+          },
+          "damage_delta_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Delta Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recent_matches",
+          "season_kills_per_match",
+          "recent_kills_per_match",
+          "kills_delta_percent",
+          "season_damage_per_match",
+          "recent_damage_per_match",
+          "damage_delta_percent"
+        ],
+        "title": "SeasonComparisonResponse"
+      },
+      "SeasonSummaryResponse": {
+        "properties": {
+          "season_id": {
+            "type": "string",
+            "title": "Season Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "solo-fpp",
+              "duo",
+              "duo-fpp",
+              "squad",
+              "squad-fpp"
+            ],
+            "title": "Mode"
+          },
+          "matches": {
+            "type": "integer",
+            "title": "Matches"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "top_10_rate": {
+            "type": "number",
+            "title": "Top 10 Rate"
+          },
+          "total_kills": {
+            "type": "integer",
+            "title": "Total Kills"
+          },
+          "kills_per_match": {
+            "type": "number",
+            "title": "Kills Per Match"
+          },
+          "damage_per_match": {
+            "type": "number",
+            "title": "Damage Per Match"
+          },
+          "avg_survival_time": {
+            "type": "number",
+            "title": "Avg Survival Time"
+          },
+          "total_assists": {
+            "type": "integer",
+            "title": "Total Assists"
+          }
+        },
+        "type": "object",
+        "required": [
+          "season_id",
+          "mode",
+          "matches",
+          "wins",
+          "win_rate",
+          "top_10_rate",
+          "total_kills",
+          "kills_per_match",
+          "damage_per_match",
+          "avg_survival_time",
+          "total_assists"
+        ],
+        "title": "SeasonSummaryResponse"
+      },
       "SummaryResponse": {
         "properties": {
           "matches": {
@@ -507,7 +698,14 @@
             "title": "Avg Kills"
           },
           "kills_per_death": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Kills Per Death"
           },
           "kills_per_match": {

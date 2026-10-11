@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import get_settings
@@ -29,6 +29,14 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_death_type_column(engine)
+
+
+def ensure_death_type_column(target_engine: Engine) -> None:
+    columns = {column["name"] for column in inspect(target_engine).get_columns("player_matches")}
+    if "death_type" not in columns:
+        with target_engine.begin() as connection:
+            connection.execute(text("ALTER TABLE player_matches ADD COLUMN death_type VARCHAR(32)"))
 
 
 def get_db() -> Generator[Session, None, None]:

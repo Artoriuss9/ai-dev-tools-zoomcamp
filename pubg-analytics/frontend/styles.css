@@ -19,6 +19,9 @@ label { display: block; margin-bottom: 8px; color: #dce5ef; font-weight: 600; }
 .search-row { display: flex; gap: 12px; }
 input { width: 100%; min-width: 0; border: 1px solid #344154; border-radius: 12px; padding: 13px 14px; font: inherit; background: #0e141d; color: #fff; outline: none; }
 input:focus { border-color: #7186a0; }
+select { width: 100%; min-width: 0; border: 1px solid #344154; border-radius: 12px; padding: 13px 14px; font: inherit; background: #0e141d; color: #fff; outline: none; }
+select:focus { border-color: #7186a0; }
+.mode-label { margin-top: 16px; }
 button { border: 0; border-radius: 12px; padding: 13px 18px; font: inherit; font-weight: 700; cursor: pointer; background: #f0f4f8; color: #0b0f14; min-width: 120px; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 button.secondary { background: #1b2532; color: #dce5ef; border: 1px solid #334155; }
@@ -29,6 +32,16 @@ button.secondary { background: #1b2532; color: #dce5ef; border: 1px solid #33415
 .meta-row h2 { margin: 0; font-size: 1.7rem; }
 .muted { color: #8290a1; margin: 3px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
 .meta-right { text-align: right; color: #94a3b8; font-size: .92rem; }
+.season-card { padding: 20px; margin-bottom: 20px; }
+.season-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.season-heading h3 { margin: 0; font-size: 1.2rem; }
+.season-note, .section-note { color: #94a3b8; font-size: .88rem; }
+.season-card .metrics-grid { margin-top: 14px; margin-bottom: 0; }
+.no-recent { padding: 16px; border: 1px solid #344154; border-radius: 12px; margin: 0 0 20px; }
+.recent-heading { margin: 0; font-size: 1.35rem; }
+.recent-heading span { color: #94a3b8; font-size: .9rem; font-weight: 400; }
+.section-note { margin: 4px 0 16px; }
+.sample-heading { margin: 0 0 10px; font-size: 1rem; }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .metric { padding: 16px; border: 1px solid #273345; border-radius: 14px; background: #111821; }
 .metric-label { color: #8e9aaa; font-size: .82rem; }
@@ -41,7 +54,6 @@ button.secondary { background: #1b2532; color: #dce5ef; border: 1px solid #33415
 .advice-copy { margin: 10px 0 0; color: #d5e2e7; }
 .section-kicker { margin: 0 0 8px; color: #79b6ac; font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .headline-card h3 { max-width: 620px; margin: 0; font-size: clamp(1.45rem, 3vw, 2.2rem); line-height: 1.12; }
-.profile-copy { max-width: 620px; margin: 14px 0 0; color: #b1c5c3; }
 .section-heading { display: flex; justify-content: space-between; gap: 12px; }
 .section-heading h3, .insight-card h3 { margin: 0; font-size: 1.1rem; }
 .target-mark { color: #d4a86a; font-size: 1.4rem; font-weight: 800; }

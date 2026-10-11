@@ -1,10 +1,15 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 
+GameMode = Literal["solo", "solo-fpp", "duo", "duo-fpp", "squad", "squad-fpp"]
+
+
 class AnalyzeRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=100)
+    mode: GameMode | None = None
 
     @field_validator("nickname")
     @classmethod
@@ -34,11 +39,25 @@ class SummaryResponse(BaseModel):
     win_rate: float
     avg_placement: float
     avg_kills: float
-    kills_per_death: float
+    kills_per_death: float | None
     kills_per_match: float
     avg_damage: float
     avg_assists: float
     avg_survival_time: float
+
+
+class SeasonSummaryResponse(BaseModel):
+    season_id: str
+    mode: GameMode
+    matches: int
+    wins: int
+    win_rate: float
+    top_10_rate: float
+    total_kills: int
+    kills_per_match: float
+    damage_per_match: float
+    avg_survival_time: float
+    total_assists: int
 
 
 class MatchResponse(BaseModel):
@@ -64,6 +83,16 @@ class TrendResponse(BaseModel):
     recent: "TrendStats"
 
 
+class SeasonComparisonResponse(BaseModel):
+    recent_matches: int
+    season_kills_per_match: float
+    recent_kills_per_match: float
+    kills_delta_percent: float | None
+    season_damage_per_match: float
+    recent_damage_per_match: float
+    damage_delta_percent: float | None
+
+
 class TrendStats(BaseModel):
     kills_per_match: float
     avg_damage: float
@@ -85,7 +114,6 @@ class MapPerformanceResponse(BaseModel):
 
 class InsightsResponse(BaseModel):
     headline: str
-    profile: str
     strengths: list[str]
     weaknesses: list[str]
     next_match_goals: list[str]
@@ -93,6 +121,7 @@ class InsightsResponse(BaseModel):
     top_10_rate: float
     kill_rate: float
     trend: TrendResponse
+    season_comparison: SeasonComparisonResponse | None
     map_performance: list[MapPerformanceResponse]
     by_map: dict[str, MapStats]
     advice: str
@@ -100,9 +129,11 @@ class InsightsResponse(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     player: PlayerResponse
-    summary: SummaryResponse
+    summary: SummaryResponse | None
     matches: list[MatchResponse]
-    insights: InsightsResponse
+    insights: InsightsResponse | None
+    season_summary: SeasonSummaryResponse | None
+    mode: GameMode
     analyzed_count: int
     requested_count: int = 10
     updated_at: datetime

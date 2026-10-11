@@ -39,6 +39,7 @@ class PlayerMatch(Base):
     match_id: Mapped[str] = mapped_column(ForeignKey("matches.match_id", ondelete="CASCADE"), nullable=False, index=True)
     placement: Mapped[int] = mapped_column(Integer, nullable=False)
     kills: Mapped[int] = mapped_column(Integer, nullable=False)
+    death_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     assists: Mapped[int] = mapped_column(Integer, nullable=False)
     damage: Mapped[float] = mapped_column(Float, nullable=False)
     survival_time: Mapped[float] = mapped_column(Float, nullable=False)

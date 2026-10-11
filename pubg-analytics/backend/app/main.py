@@ -40,7 +40,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="PUBG Match Analytics",
     version="1.0.0",
-    description="Analyze the latest Solo FPP PUBG matches for a player.",
+    description="Analyze current-season PUBG statistics and recent match details.",
     lifespan=lifespan,
 )
 configure_telemetry(app)
@@ -123,7 +123,7 @@ async def request_logging(request: Request, call_next):
 )
 async def analyze(payload: AnalyzeRequest, service: AnalysisService = Depends(get_analysis_service)) -> AnalyzeResponse:
     try:
-        return await service.analyze(payload.nickname)
+        return await service.analyze(payload.nickname, payload.mode)
     except PlayerNotFoundError as exc:
         logger.warning("Player not found")
         raise HTTPException(status_code=404, detail={"code": "PLAYER_NOT_FOUND", "message": str(exc)}) from exc

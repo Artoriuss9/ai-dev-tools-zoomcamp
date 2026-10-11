@@ -1,8 +1,8 @@
-export async function analyzePlayer(nickname, fetchImpl = globalThis.fetch) {
+export async function analyzePlayer(nickname, mode = 'solo-fpp', fetchImpl = globalThis.fetch) {
   const response = await fetchImpl('/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickname })
+    body: JSON.stringify({ nickname, mode })
   });
 
   let data;

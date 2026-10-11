@@ -1,4 +1,6 @@
 import logging
+import math
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -25,6 +27,24 @@ class APIPlayer:
 
 
 @dataclass(frozen=True)
+class APIGameModeStats:
+    matches: int
+    wins: int
+    top_10s: int
+    kills: int
+    damage: float
+    survival_time: float
+    assists: int
+
+
+@dataclass(frozen=True)
+class APIPlayerSeason:
+    season_id: str
+    match_ids: list[str]
+    stats: APIGameModeStats | None
+
+
+@dataclass(frozen=True)
 class APIMatchParticipant:
     match_id: str
     map_name: str
@@ -35,9 +55,21 @@ class APIMatchParticipant:
     assists: int
     damage: float
     survival_time: float
+    death_type: str = "byplayer"
 
 
 class PUBGClient:
+    _SEASON_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
+    _current_seasons: dict[tuple[str, str], tuple[float, str]] = {}
+    _MODE_MATCH_RELATIONSHIPS = {
+        "solo": "matchesSolo",
+        "solo-fpp": "matchesSoloFPP",
+        "duo": "matchesDuo",
+        "duo-fpp": "matchesDuoFPP",
+        "squad": "matchesSquad",
+        "squad-fpp": "matchesSquadFPP",
+    }
+
     def __init__(self, api_key: str, platform: str, base_url: str, timeout: float = 10.0):
         self.api_key = api_key
         self.platform = platform
@@ -62,8 +94,10 @@ class PUBGClient:
             logger.exception("PUBG API request failed: %s", path)
             raise PUBGAPIUnavailableError("PUBG API is unavailable") from exc
 
-        if response.status_code == 404:
+        if response.status_code == 404 and path == "players":
             raise PlayerNotFoundError("Player not found")
+        if response.status_code == 404:
+            raise PUBGAPIError(f"PUBG API resource was not found for {path}")
         if response.status_code == 429:
             raise RateLimitedError("PUBG API rate limit reached")
         if 500 <= response.status_code <= 599:
@@ -90,6 +124,91 @@ class PUBGClient:
         if not player_id:
             raise InvalidPUBGDataError("PUBG player response is missing player id")
         return APIPlayer(player_id=player_id, nickname=returned_nickname, match_ids=match_ids)
+
+    async def get_current_season_player(self, player_id: str, mode: str) -> APIPlayerSeason:
+        match_relationship = self._MODE_MATCH_RELATIONSHIPS.get(mode)
+        if match_relationship is None:
+            raise ValueError(f"Unsupported game mode: {mode}")
+
+        season_id = await self._get_current_season_id()
+        payload = await self._get(
+            f"players/{quote(player_id, safe='')}/seasons/{quote(season_id, safe='')}"
+        )
+        data = payload.get("data") or {}
+        if not isinstance(data, dict):
+            raise InvalidPUBGDataError("PUBG season response is malformed")
+        attributes = data.get("attributes") or {}
+        relationships = data.get("relationships") or {}
+        if not isinstance(attributes, dict) or not isinstance(relationships, dict):
+            raise InvalidPUBGDataError("PUBG season response is malformed")
+        game_mode_stats = attributes.get("gameModeStats") or {}
+        if not isinstance(game_mode_stats, dict):
+            raise InvalidPUBGDataError("PUBG season mode stats are malformed")
+        mode_stats = game_mode_stats.get(mode)
+        mode_relationship = relationships.get(match_relationship) or {}
+        if not isinstance(mode_relationship, dict):
+            raise InvalidPUBGDataError("PUBG season match relationship is malformed")
+        match_data = mode_relationship.get("data") or []
+        if not isinstance(match_data, list):
+            raise InvalidPUBGDataError("PUBG season match list is malformed")
+        match_ids = [item["id"] for item in match_data if isinstance(item, dict) and item.get("id")]
+
+        stats = None
+        if mode_stats is not None:
+            if not isinstance(mode_stats, dict):
+                raise InvalidPUBGDataError("PUBG season stats are malformed")
+            stats = APIGameModeStats(
+                matches=self._season_stat(mode_stats, "roundsPlayed", integer=True),
+                wins=self._season_stat(mode_stats, "wins", integer=True),
+                top_10s=self._season_stat(mode_stats, "top10s", integer=True),
+                kills=self._season_stat(mode_stats, "kills", integer=True),
+                damage=self._season_stat(mode_stats, "damageDealt"),
+                survival_time=self._season_stat(mode_stats, "timeSurvived"),
+                assists=self._season_stat(mode_stats, "assists", integer=True),
+            )
+
+        return APIPlayerSeason(season_id=season_id, match_ids=match_ids, stats=stats)
+
+    async def _get_current_season_id(self) -> str:
+        cache_key = (self.base_url, self.platform)
+        now = time.monotonic()
+        cached = self._current_seasons.get(cache_key)
+        if cached and now < cached[0]:
+            return cached[1]
+
+        payload = await self._get("seasons")
+        seasons = payload.get("data")
+        if not isinstance(seasons, list):
+            raise InvalidPUBGDataError("PUBG seasons response is missing season data")
+
+        current_ids = [
+            season.get("id")
+            for season in seasons
+            if isinstance(season, dict)
+            and isinstance(season.get("attributes"), dict)
+            and (season.get("attributes") or {}).get("isCurrentSeason") is True
+            and season.get("id")
+        ]
+        if not current_ids:
+            raise InvalidPUBGDataError("PUBG API did not return an active season")
+
+        season_id = str(current_ids[0])
+        self._current_seasons[cache_key] = (now + self._SEASON_CACHE_TTL_SECONDS, season_id)
+        return season_id
+
+    @staticmethod
+    def _season_stat(stats: dict, key: str, integer: bool = False) -> int | float:
+        value = stats.get(key)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise InvalidPUBGDataError(f"PUBG season stats are missing a valid {key} value")
+        if integer and not float(value).is_integer():
+            raise InvalidPUBGDataError(f"PUBG season stats contain a non-integer {key} value")
+        return int(value) if integer else float(value)
 
     async def get_match(self, match_id: str, player_id: str) -> APIMatchParticipant:
         payload = await self._get(f"matches/{quote(match_id, safe='')}")
@@ -121,9 +240,13 @@ class PUBGClient:
             "assists": participant.get("assists"),
             "damageDealt": participant.get("damageDealt"),
             "timeSurvived": participant.get("timeSurvived"),
+            "deathType": participant.get("deathType"),
         }
         if map_name is None or game_mode is None or played_at is None or any(v is None for v in required.values()):
             raise InvalidPUBGDataError(f"Incomplete match data for {match_id}")
+        death_type = str(participant["deathType"])
+        if death_type not in {"alive", "byplayer", "suicide", "logout"}:
+            raise InvalidPUBGDataError(f"Invalid death type for {match_id}")
 
         return APIMatchParticipant(
             match_id=match_id,
@@ -135,6 +258,7 @@ class PUBGClient:
             assists=int(participant["assists"]),
             damage=float(participant["damageDealt"]),
             survival_time=float(participant["timeSurvived"]),
+            death_type=death_type,
         )
 
     @staticmethod

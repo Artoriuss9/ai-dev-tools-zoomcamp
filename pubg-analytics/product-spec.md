@@ -2,30 +2,38 @@
 
 ## Problem
 
-PUBG players have match history but need a quick way to understand recent
-performance and identify what to focus on in the next match.
+PUBG players need season-wide performance totals and a quick way to understand
+recent match performance and identify what to focus on in the next match.
 
 ## Target user and goal
 
 - **User:** a PUBG player who can be looked up by in-game nickname.
-- **Goal:** review up to ten recent matches in the configured game mode and get
-  concise, explainable performance trends.
+- **Goal:** review current-season totals and up to ten recent detailed matches
+  in Solo FPP, Duo FPP, or Squad FPP, then get concise, explainable insights.
 
 ## User flow
 
 1. The player enters a nickname in the browser.
-2. The application looks up the player and their recent match references via
-   the PUBG API.
-3. The backend fetches match details, filters the configured mode, and stores
-   the player, matches, and participant statistics in SQLite.
-4. The page displays summary metrics, map performance, recent-vs-previous
-   trends, coaching insights, and the selected matches.
+2. The application looks up the player, current season totals, and recent
+   mode-specific match references via the PUBG API.
+3. The backend fetches up to ten individual match details and stores the
+   player, matches, and participant statistics in SQLite.
+4. The page displays full-season aggregate metrics separately from recent
+   match metrics, map performance, trends, and coaching insights.
 5. The player may refresh to fetch current data again.
 
 ## Functional requirements
 
 - Keep the PUBG API key on the server; never send it to the browser.
-- Analyze no more than ten matches in the configured mode (Solo FPP by default).
+- Let the user select Solo FPP, Duo FPP, or Squad FPP.
+- Show full-season aggregates from the PUBG season-stats endpoint and analyze
+  no more than ten recent individual matches for detailed insights.
+- Clearly distinguish full-season totals from individual match data, which the
+  PUBG API retains for only 14 days.
+- Calculate recent-match K/D as total kills divided by confirmed deaths from
+  participant `deathType`; do not infer deaths from matches lost.
+- Compare recent kills-per-match and damage-per-match against the season
+  averages as context, not as an independent trend.
 - De-duplicate match references and persist updates to existing records.
 - Compute statistics from the analyzed matches and make the JSON response
   usable by the browser without client-side database access.

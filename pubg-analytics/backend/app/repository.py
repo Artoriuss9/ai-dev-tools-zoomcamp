@@ -54,6 +54,7 @@ class PlayerRepository:
                 match_id=match_id,
                 placement=match_data.placement,
                 kills=match_data.kills,
+                death_type=match_data.death_type,
                 assists=match_data.assists,
                 damage=match_data.damage,
                 survival_time=match_data.survival_time,
@@ -64,6 +65,7 @@ class PlayerRepository:
         else:
             player_match.placement = match_data.placement
             player_match.kills = match_data.kills
+            player_match.death_type = match_data.death_type
             player_match.assists = match_data.assists
             player_match.damage = match_data.damage
             player_match.survival_time = match_data.survival_time
