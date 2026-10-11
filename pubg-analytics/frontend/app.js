@@ -1,5 +1,5 @@
 import { analyzePlayer } from './api.js';
-import { escapeHtml, formatNumber } from './presentation.js';
+import { escapeHtml, formatNumber, formatSeasonTitle } from './presentation.js';
 
 const form = document.getElementById('analyzeForm');
 const input = document.getElementById('nickname');
@@ -9,7 +9,6 @@ const refreshButton = document.getElementById('refreshButton');
 const result = document.getElementById('result');
 const errorBox = document.getElementById('error');
 const playerName = document.getElementById('playerName');
-const playerId = document.getElementById('playerId');
 const analyzedCount = document.getElementById('analyzedCount');
 const updatedAt = document.getElementById('updatedAt');
 const seasonTitle = document.getElementById('seasonTitle');
@@ -87,15 +86,13 @@ function clearError() {
 
 function render(data) {
   playerName.textContent = data.player.nickname;
-  playerId.textContent = data.player.player_id;
   analyzedCount.textContent = data.analyzed_count;
   updatedAt.textContent = new Date(data.updated_at).toLocaleString();
   const selectedModeLabel = gameMode.options[gameMode.selectedIndex].text;
-  document.getElementById('modeBadge').textContent = `Mode: ${selectedModeLabel}`;
   seasonMode.textContent = selectedModeLabel;
 
   if (data.season_summary) {
-    seasonTitle.textContent = `Current season: ${data.season_summary.season_id}`;
+    seasonTitle.textContent = formatSeasonTitle(data.season_summary.season_id);
     seasonNote.textContent = 'Season totals cover all matches reported by PUBG API for this mode.';
     seasonMetrics.innerHTML = Object.entries(data.season_summary)
       .filter(([key]) => key !== 'season_id' && key !== 'mode')

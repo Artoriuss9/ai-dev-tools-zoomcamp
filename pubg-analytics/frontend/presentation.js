@@ -2,6 +2,11 @@ export function formatNumber(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '');
 }
 
+export function formatSeasonTitle(seasonId) {
+  const seasonNumber = seasonId.match(/(\d+)$/)?.[1];
+  return seasonNumber ? `Current season: ${seasonNumber}` : 'Current season';
+}
+
 export function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, ch => ({
     '&': '&amp;',
