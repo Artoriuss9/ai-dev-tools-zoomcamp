@@ -4,6 +4,9 @@ This FastAPI application displays current-season aggregate statistics and detail
 analytics for recent Solo/Duo/Squad FPP and TPP matches using the PUBG API. PUBG only
 retains individual match details for the last 14 days, so full-season totals are
 shown separately from the analysis of up to 10 recent matches.
+
+**Live demo:** <https://ai-dev-tools-zoomcamp-production-0bee.up.railway.app/>
+
 Recent matches are stored in a database (SQLite locally, PostgreSQL on Railway).
 The API key is stored only in the local `.env` file and is not included in the
 Docker image.
