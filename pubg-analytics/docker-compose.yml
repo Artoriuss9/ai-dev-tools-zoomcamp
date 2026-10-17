@@ -4,6 +4,7 @@ services:
   app:
     build: .
     image: pubg-analytics:local
+    container_name: pubg-analytics-app
     ports:
       - "127.0.0.1:${PUBG_APP_PORT:-8000}:8000"
     environment:
@@ -12,7 +13,7 @@ services:
       PUBG_MODE: ${PUBG_MODE:-solo-fpp}
       PUBG_API_BASE_URL: ${PUBG_API_BASE_URL:-https://api.pubg.com}
       PUBG_API_TIMEOUT: ${PUBG_API_TIMEOUT:-10}
-      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/pubg.db}
+      DATABASE_URL: ${PUBG_DATABASE_URL:-sqlite:////data/pubg.db}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       APP_ENV: docker
     volumes:
@@ -47,12 +48,90 @@ services:
       - --storage.tsdb.path=/prometheus
     volumes:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
     depends_on:
       - otel-collector
+      - blackbox-exporter
+      - alertmanager
     restart: unless-stopped
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./config/blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - source: on_call_webhook_token
+        target: on_call_webhook_token
+    depends_on:
+      - on-call-agent
+    restart: unless-stopped
+
+  on-call-agent:
+    image: pubg-analytics:local
+    command: ["python", "ops/on_call_agent.py"]
+    secrets:
+      - source: on_call_webhook_token
+        target: on_call_webhook_token
+      - source: restart_proxy_token
+        target: restart_proxy_token
+    depends_on:
+      - app
+      - restart-proxy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=3)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  restart-proxy:
+    image: pubg-analytics:local
+    command: ["python", "ops/restart_proxy.py"]
+    user: "0:0"
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      RESTART_STATE_DATABASE: /data/restart-proxy.sqlite3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - on-call-state:/data
+    secrets:
+      - source: restart_proxy_token
+        target: restart_proxy_token
+    depends_on:
+      - app
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health', timeout=3)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   loki:
     image: grafana/loki:3.2.0
@@ -93,3 +172,10 @@ volumes:
   loki-data:
   tempo-data:
   grafana-data:
+  on-call-state:
+
+secrets:
+  on_call_webhook_token:
+    file: ${ON_CALL_WEBHOOK_TOKEN_FILE:-./.secrets/alertmanager-webhook-token}
+  restart_proxy_token:
+    file: ${RESTART_PROXY_TOKEN_FILE:-./.secrets/restart-proxy-token}

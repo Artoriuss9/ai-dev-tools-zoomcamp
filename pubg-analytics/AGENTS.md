@@ -1,5 +1,19 @@
 # Project instructions
 
+## Task and agent workflow
+
+- Use [`docs/task-tracker.md`](docs/task-tracker.md) as the public backlog. Start
+  from its task ID and acceptance criteria; update its status and evidence only
+  after verification.
+- Repository custom agents are in [`../.github/agents/`](../.github/agents/):
+  Product Planner, Implementer, Operations Responder, and QA Reviewer.
+- For work requiring multiple roles, use the documented handoff in
+  [`docs/ai-workflow.md`](docs/ai-workflow.md). QA verification is independent
+  and read-only.
+- Never start, resume, or deploy the Railway service without explicit user
+  approval. Do not publish changes to `main` while the service is intentionally
+  paused.
+
 ## Scope
 
 - The backend is `backend/app/`; browser assets are in `frontend/`; product and operations

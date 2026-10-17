@@ -31,6 +31,11 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Prepare report directory
         run: mkdir -p reports
+      - name: Prepare local Compose secrets
+        run: |
+          mkdir -p .secrets
+          printf '%s' 'ci-only-alertmanager-token-not-for-deployment' > .secrets/alertmanager-webhook-token
+          printf '%s' 'ci-only-restart-proxy-token-not-for-deployment' > .secrets/restart-proxy-token
       - name: Run backend unit and API tests
         id: unit
         run: pytest -q tests --ignore=tests/integration
@@ -48,7 +53,7 @@ jobs:
       - name: Run Bandit
         id: bandit
         continue-on-error: true
-        run: bandit -r backend/app -ll -f json -o reports/bandit.json
+        run: bandit -r backend/app ops -ll -f json -o reports/bandit.json
       - name: Run pip-audit
         id: pip_audit
         continue-on-error: true
@@ -58,6 +63,18 @@ jobs:
         env:
           PUBG_API_KEY: ci-placeholder-not-a-real-key
         run: docker compose config --quiet
+      - name: Validate Prometheus and Alertmanager configuration
+        id: observability_config
+        run: |
+          docker run --rm --entrypoint /bin/promtool \
+            --volume "$PWD/config/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/amtool \
+            --volume "$PWD/config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+            --volume "$PWD/.secrets/alertmanager-webhook-token:/run/secrets/on_call_webhook_token:ro" \
+            prom/alertmanager:v0.28.1 \
+            check-config /etc/alertmanager/alertmanager.yml
       - name: Build application image
         id: build
         run: docker build --tag pubg-analytics:${{ github.sha }} .
@@ -112,6 +129,7 @@ jobs:
           BANDIT_OUTCOME: ${{ steps.bandit.outcome }}
           PIP_AUDIT_OUTCOME: ${{ steps.pip_audit.outcome }}
           COMPOSE_CONFIG_OUTCOME: ${{ steps.compose_config.outcome }}
+          OBSERVABILITY_CONFIG_OUTCOME: ${{ steps.observability_config.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
         run: |
@@ -127,6 +145,7 @@ jobs:
             echo "| Bandit | ${BANDIT_OUTCOME} |"
             echo "| pip-audit | ${PIP_AUDIT_OUTCOME} |"
             echo "| Compose config | ${COMPOSE_CONFIG_OUTCOME} |"
+            echo "| Prometheus/Alertmanager config | ${OBSERVABILITY_CONFIG_OUTCOME} |"
             echo "| Docker build | ${BUILD_OUTCOME} |"
             echo "| Container smoke test | ${SMOKE_OUTCOME} |"
             echo ""
@@ -142,10 +161,11 @@ jobs:
           BANDIT_OUTCOME: ${{ steps.bandit.outcome }}
           PIP_AUDIT_OUTCOME: ${{ steps.pip_audit.outcome }}
           COMPOSE_CONFIG_OUTCOME: ${{ steps.compose_config.outcome }}
+          OBSERVABILITY_CONFIG_OUTCOME: ${{ steps.observability_config.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
         run: |
-          if [[ "$UNIT_OUTCOME" != "success" || "$INTEGRATION_OUTCOME" != "success" || "$FRONTEND_OUTCOME" != "success" || "$OPENAPI_OUTCOME" != "success" || "$BANDIT_OUTCOME" != "success" || "$PIP_AUDIT_OUTCOME" != "success" || "$COMPOSE_CONFIG_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$SMOKE_OUTCOME" != "success" ]]; then
+          if [[ "$UNIT_OUTCOME" != "success" || "$INTEGRATION_OUTCOME" != "success" || "$FRONTEND_OUTCOME" != "success" || "$OPENAPI_OUTCOME" != "success" || "$BANDIT_OUTCOME" != "success" || "$PIP_AUDIT_OUTCOME" != "success" || "$COMPOSE_CONFIG_OUTCOME" != "success" || "$OBSERVABILITY_CONFIG_OUTCOME" != "success" || "$BUILD_OUTCOME" != "success" || "$SMOKE_OUTCOME" != "success" ]]; then
             echo "One or more tests, security scans, or Docker smoke checks failed."
             exit 1
           fi

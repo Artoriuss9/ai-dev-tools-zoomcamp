@@ -5,24 +5,33 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+
+import httpx
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EXPECTED_SERVICES = {"app", "otel-collector", "prometheus", "loki", "tempo", "grafana"}
+EXPECTED_SERVICES = {
+    "app",
+    "otel-collector",
+    "prometheus",
+    "loki",
+    "tempo",
+    "grafana",
+    "blackbox-exporter",
+    "alertmanager",
+    "on-call-agent",
+    "restart-proxy",
+}
 
 
 def check_http(url: str) -> dict[str, object]:
     try:
-        with urlopen(url, timeout=3) as response:
-            return {
-                "status": "ok" if response.status == 200 else "failed",
-                "http_status": response.status,
-            }
-    except HTTPError as exc:
-        return {"status": "failed", "http_status": exc.code, "error": str(exc)}
-    except (URLError, TimeoutError, OSError) as exc:
+        response = httpx.get(url, timeout=3, follow_redirects=False)
+        return {
+            "status": "ok" if response.status_code == 200 else "failed",
+            "http_status": response.status_code,
+        }
+    except httpx.HTTPError as exc:
         return {"status": "failed", "error": str(exc)}
 
 

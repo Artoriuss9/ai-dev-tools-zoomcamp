@@ -1,7 +1,11 @@
+import json
+import logging
+
 from backend.app.exceptions import PlayerNotFoundError
 from backend.app.database import get_db
 from backend.app.main import app, settings
 from backend.app.main import get_analysis_service
+from backend.app.telemetry import JsonLogFormatter
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
@@ -17,6 +21,23 @@ def test_health():
         response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_http_request_log_correlates_with_trace_and_span(caplog):
+    settings.pubg_api_key = "test-key"
+    caplog.handler.setFormatter(JsonLogFormatter())
+    with caplog.at_level(logging.INFO), TestClient(app) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    entries = [
+        entry
+        for entry in (json.loads(line) for line in caplog.text.splitlines())
+        if entry["logger"] == "backend.app.main" and entry["message"] == "HTTP request completed"
+    ]
+    assert len(entries) == 1
+    assert len(entries[0]["trace_id"]) == 32
+    assert len(entries[0]["span_id"]) == 16
 
 
 def test_version_reports_deployed_commit(monkeypatch):

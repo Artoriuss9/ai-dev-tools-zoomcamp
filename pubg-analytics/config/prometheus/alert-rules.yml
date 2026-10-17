@@ -1,0 +1,11 @@
+groups:
+  - name: pubg-analytics-availability
+    rules:
+      - alert: PUBGAnalyticsEndpointUnavailable
+        expr: probe_success{job="pubg-analytics-health"} == 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: "PUBG Analytics health or readiness endpoint is unavailable"
+          description: "The on-call responder will inspect liveness and readiness; database or repeated failures are escalated."

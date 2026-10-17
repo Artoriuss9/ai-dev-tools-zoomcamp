@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY --chown=app:app backend ./backend
 COPY --chown=app:app frontend ./frontend
+COPY --chown=app:app ops ./ops
 
 ENV DATABASE_URL=sqlite:////data/pubg.db
 USER app

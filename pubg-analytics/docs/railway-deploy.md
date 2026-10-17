@@ -14,6 +14,9 @@ token is required in GitHub Actions.
    `/pubg-analytics`. Railway builds the checked-in `Dockerfile`. Keep
    deployment on pushes to `main` enabled, and enable **Wait for CI** so
    Railway waits for GitHub Actions to finish successfully before deployment.
+   **Wait for CI is a deployment gate, not a pause control.** If the service is
+   intentionally paused, do not push to `main` until the operator is ready for
+   Railway to deploy and potentially resume the service.
 3. Add the following application service variables in Railway:
    - `PUBG_API_KEY`: your PUBG developer API key.
    - `DATABASE_URL`: reference the PostgreSQL service's `DATABASE_URL` using
@@ -46,6 +49,12 @@ credentials. The health check is deliberately not triggered by `workflow_run`:
 with Railway's **Wait for CI** enabled, a post-CI workflow that itself waits
 for the new deployment could create a deployment/CI wait cycle. Keep the PUBG
 API key in Railway variables, not GitHub Actions.
+
+The local Compose alert responder described in the README has no Railway
+credentials and does not restart or deploy the hosted application. When Railway
+is intentionally paused, public health checks are expected to fail until an
+operator explicitly resumes the service; no resume action is part of this
+repository workflow.
 
 Railway documentation: <https://docs.railway.com/cli>,
 <https://docs.railway.com/databases/postgresql>, and

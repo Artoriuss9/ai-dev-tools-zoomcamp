@@ -25,6 +25,10 @@ class JsonLogFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            entry["trace_id"] = f"{span_context.trace_id:032x}"
+            entry["span_id"] = f"{span_context.span_id:016x}"
         for key in ("http_method", "http_route", "http_status_code", "duration_ms"):
             value = getattr(record, key, None)
             if value is not None:
