@@ -32,9 +32,14 @@ their role and evidence here when they finish.
   separate subagents. The repository agent profiles define the roles for
   subsequent VS Code agent sessions; this activity log does not claim
   multi-agent delegation that did not occur.
-- The local Docker daemon was unavailable, so the Compose stack and
-  Prometheus/Alertmanager checkers could not be run here. CI now performs the
-  latter configuration checks; their results are still pending.
+- The local Docker daemon was unavailable in the session that wrote the
+  previous entry; the Compose stack and the promtool/amtool configuration
+  checks were later run successfully with Docker Desktop available.
+- The Railway deployment initially crashed because the application service's
+  `DATABASE_URL` still referenced a removed Postgres service. The operator
+  re-pointed `DATABASE_URL` at the new Postgres service; after the redeploy,
+  `/health` and `/ready` returned HTTP 200 and `/version` reported commit
+  `c0591d587080715f83a538c822eca3f3f231cfce` at the public URL.
 - A later session completed the live verification that PUBG-002 and PUBG-003
   required. The full Compose stack was started (`docker compose up --build -d
   --wait`) with all containers healthy. `promtool check config --syntax-only`,
